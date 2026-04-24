@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "478676825599",
+    "firebase_url": "https://nexttalk-ca7be-default-rtdb.firebaseio.com",
+    "project_id": "nexttalk-ca7be",
+    "storage_bucket": "nexttalk-ca7be.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:478676825599:android:ecbceebbb30bcbfdc7e3ca",
+        "android_client_info": {
+          "package_name": "com.example.nextalkapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyARTH1d-NAt-zw5ex7Mq52s_6iFv6BEoTo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
