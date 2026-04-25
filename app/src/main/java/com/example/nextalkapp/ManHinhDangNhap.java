@@ -146,7 +146,8 @@ public class ManHinhDangNhap extends AppCompatActivity {
                                             .putString("uid", uid)
                                             .apply();
                                 }
-
+                                SharedPreferences prefs = getSharedPreferences("USER", MODE_PRIVATE);
+                                prefs.edit().putString("uid", uid).apply();
                                 Toast.makeText(this, "Đăng nhập thành công", Toast.LENGTH_SHORT).show();
 
                                 startActivity(new Intent(this, MainActivity.class));
