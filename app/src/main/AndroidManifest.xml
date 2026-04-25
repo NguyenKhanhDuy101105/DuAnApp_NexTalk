@@ -12,6 +12,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.NexTalkApp">
         <activity
+            android:name=".MessageActivity"
+            android:exported="false" />
+        <activity
             android:name=".ManHinhGuiOTP"
             android:exported="false" />
         <activity

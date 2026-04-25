@@ -96,122 +96,91 @@ public class ManHinhDangNhap extends AppCompatActivity {
 
     // 🚀 LOGIN
     private void handleLogin() {
-
         String input = edtLoginEmailOrPhone.getText().toString().trim();
         String password = edtLoginPassword.getText().toString().trim();
 
-        // 1️⃣ Validate rỗng
+        // 1️⃣ Validate input
         if (TextUtils.isEmpty(input) || TextUtils.isEmpty(password)) {
             Toast.makeText(this, "Vui lòng nhập đầy đủ thông tin", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // 2️⃣ Validate password
         if (password.length() < 8) {
-            Toast.makeText(this, "Mật khẩu không hợp lệ", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Mật khẩu tối thiểu 8 ký tự", Toast.LENGTH_SHORT).show();
             return;
         }
 
         String hashedPassword = hashPassword(password);
+        SharedPreferences prefs = getSharedPreferences("USER", MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
 
-        // 🔍 LOGIN BẰNG EMAIL
+        // 🔍 TRƯỜNG HỢP 1: LOGIN BẰNG EMAIL
         if (Patterns.EMAIL_ADDRESS.matcher(input).matches()) {
-
-            dbRef.child("users")
-                    .orderByChild("email")
-                    .equalTo(input)
-                    .get()
+            dbRef.child("users").orderByChild("email").equalTo(input).get()
                     .addOnSuccessListener(snapshot -> {
-
                         if (!snapshot.exists()) {
                             Toast.makeText(this, "Email không tồn tại", Toast.LENGTH_SHORT).show();
                             return;
                         }
 
                         snapshot.getChildren().forEach(userSnap -> {
-
                             String dbPassword = userSnap.child("password").getValue(String.class);
-
                             if (dbPassword != null && dbPassword.equals(hashedPassword)) {
-
                                 String uid = userSnap.getKey();
 
-                                // 🟢 update trạng thái
+                                // Cập nhật trạng thái online
                                 dbRef.child("users").child(uid).child("status").setValue("online");
 
-                                // 💾 remember login
-                                if (cbLoginRemember.isChecked()) {
-                                    getSharedPreferences("USER", MODE_PRIVATE)
-                                            .edit()
-                                            .putString("uid", uid)
-                                            .apply();
-                                }
+                                // ✅ FIX LOGIC:
+                                // Bước A: Luôn luôn lưu UID để các màn hình sau (ChatFragment, MessageActivity) có dữ liệu
+                                editor.putString("uid", uid);
+
+                                // Bước B: Chỉ lưu Flag "isRemembered" nếu người dùng có tích chọn
+                                editor.putBoolean("isRemembered", cbLoginRemember.isChecked());
+                                editor.apply();
 
                                 Toast.makeText(this, "Đăng nhập thành công", Toast.LENGTH_SHORT).show();
-
                                 startActivity(new Intent(this, MainActivity.class));
                                 finish();
-
                             } else {
                                 Toast.makeText(this, "Sai mật khẩu", Toast.LENGTH_SHORT).show();
                             }
-
                         });
-
                     })
-                    .addOnFailureListener(e -> {
-                        Log.e("LOGIN_ERROR", "Email login error", e);
-                        Toast.makeText(this, "Lỗi: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                    });
-
+                    .addOnFailureListener(e -> Toast.makeText(this, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show());
         }
 
-        // 🔍 LOGIN BẰNG SĐT
+        // 🔍 TRƯỜNG HỢP 2: LOGIN BẰNG SĐT
         else if (input.matches("^0\\d{9}$")) {
-
             dbRef.child("phones").child(input).get()
                     .addOnSuccessListener(snapshot -> {
-
                         if (!snapshot.exists()) {
                             Toast.makeText(this, "SĐT không tồn tại", Toast.LENGTH_SHORT).show();
                             return;
                         }
 
                         String uid = snapshot.getValue(String.class);
-
                         dbRef.child("users").child(uid).get()
                                 .addOnSuccessListener(userSnap -> {
-
                                     String dbPassword = userSnap.child("password").getValue(String.class);
-
                                     if (dbPassword != null && dbPassword.equals(hashedPassword)) {
 
                                         dbRef.child("users").child(uid).child("status").setValue("online");
 
-                                        if (cbLoginRemember.isChecked()) {
-                                            getSharedPreferences("USER", MODE_PRIVATE)
-                                                    .edit()
-                                                    .putString("uid", uid)
-                                                    .apply();
-                                        }
+                                        // ✅ FIX LOGIC: Tương tự như Email
+                                        editor.putString("uid", uid);
+                                        editor.putBoolean("isRemembered", cbLoginRemember.isChecked());
+                                        editor.apply();
 
                                         Toast.makeText(this, "Đăng nhập thành công", Toast.LENGTH_SHORT).show();
-
                                         startActivity(new Intent(this, MainActivity.class));
                                         finish();
-
                                     } else {
                                         Toast.makeText(this, "Sai mật khẩu", Toast.LENGTH_SHORT).show();
                                     }
-
                                 });
-
                     })
-                    .addOnFailureListener(e -> {
-                        Log.e("LOGIN_ERROR", "Phone login error", e);
-                        Toast.makeText(this, "Lỗi: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                    });
-
+                    .addOnFailureListener(e -> Toast.makeText(this, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show());
         }
 
         // ❌ INVALID INPUT

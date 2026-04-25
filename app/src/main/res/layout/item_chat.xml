@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginHorizontal="15dp"
+    android:layout_marginVertical="5dp"
+    android:background="@drawable/bg_item_white"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="8dp">
+
+    <FrameLayout
+        android:layout_width="55dp"
+        android:layout_height="55dp">
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="55dp"
+            android:layout_height="55dp"
+            app:cardCornerRadius="27.5dp"
+            app:cardElevation="0dp">
+
+            <ImageView
+                android:id="@+id/imgAvatar"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:src="@drawable/logo2" />
+        </androidx.cardview.widget.CardView>
+
+        <View
+            android:id="@+id/viewStatusChat"
+            android:layout_width="14dp"
+            android:layout_height="14dp"
+            android:layout_gravity="bottom|end"
+            android:layout_margin="1dp"
+            android:background="@drawable/bg_status_online"
+            android:elevation="2dp" />
+    </FrameLayout>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_vertical"
+        android:layout_marginStart="15dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/txtName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="Alice Johnson"
+            android:textColor="#000000"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/txtLastMessage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:minLines="1"
+            android:text="See you at 5!"
+            android:textColor="#555555"
+            android:textSize="14sp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/txtTime"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:layout_marginTop="4dp"
+        android:text="9:41 AM"
+        android:textColor="#575454"
+        android:textSize="13sp" />
+
+</LinearLayout>
