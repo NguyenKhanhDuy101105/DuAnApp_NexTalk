@@ -1,5 +1,6 @@
 package com.example.nextalkapp;
 
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.text.Editable;
@@ -28,12 +29,15 @@ import java.util.List;
 
 public class ChatFragment extends Fragment {
 
-    private RecyclerView rcvChats;
+    private RecyclerView rcvChats, rcvActiveNow;
     private EditText searchBar;
 
     private ChatAdapter adapter;
+    private ActiveAdapter activeAdapter; // Adapter cho danh sách ngang
+
     private List<User> list;
     private List<User> listFull; // dùng cho search
+    private List<User> listActive; // Danh sách người dùng đang online
 
     private DatabaseReference dbRef;
 
@@ -50,15 +54,24 @@ public class ChatFragment extends Fragment {
 
         // 🔗 Mapping
         rcvChats = view.findViewById(R.id.rcvChats);
+        rcvActiveNow = view.findViewById(R.id.rcvActiveNow);
         searchBar = view.findViewById(R.id.search_bar);
 
-        // 🔧 Setup RecyclerView
+        // 🔧 Setup Dữ liệu
         list = new ArrayList<>();
         listFull = new ArrayList<>();
-        adapter = new ChatAdapter(list);
+        listActive = new ArrayList<>();
 
+        // 🔧 Setup RecyclerView Chat chính (Dọc)
+        adapter = new ChatAdapter(list, user -> startChatMessage(user));
         rcvChats.setLayoutManager(new LinearLayoutManager(getContext()));
         rcvChats.setAdapter(adapter);
+
+        // 🔧 Setup RecyclerView Active Now (Ngang)
+        activeAdapter = new ActiveAdapter(listActive, user -> startChatMessage(user));
+        LinearLayoutManager horizontalLayoutManager = new LinearLayoutManager(getContext(), LinearLayoutManager.HORIZONTAL, false);
+        rcvActiveNow.setLayoutManager(horizontalLayoutManager);
+        rcvActiveNow.setAdapter(activeAdapter);
 
         // 🔥 Firebase
         dbRef = FirebaseDatabase.getInstance().getReference();
@@ -69,58 +82,92 @@ public class ChatFragment extends Fragment {
         return view;
     }
 
+    // Hàm bổ trợ để chuyển màn hình Chat
+    private void startChatMessage(User user) {
+        Intent intent = new Intent(getActivity(), MessageActivity.class);
+        intent.putExtra("receiverUid", user.uid);
+        intent.putExtra("receiverName", user.name);
+        intent.putExtra("receiverAvatar", user.avatar);
+        startActivity(intent);
+    }
+
     // 📥 Load danh sách user
     private void loadUsers() {
-
         if (getContext() == null) return;
 
-        SharedPreferences prefs = getContext().getSharedPreferences("USER", getContext().MODE_PRIVATE);
-        String currentUid = prefs.getString("uid", null);
+        SharedPreferences prefs = getSharedPreferencesSafe();
+        String currentUid = (prefs != null) ? prefs.getString("uid", null) : null;
 
-        if (currentUid == null) {
-//            Toast.makeText(getContext(), "Chưa có UID!", Toast.LENGTH_SHORT).show();
-            return;
-        }
+        if (currentUid == null) return;
 
+        // Vẫn trỏ vào "users" vì bạn đang lưu lastMessage trực tiếp trong User object
         dbRef.child("users").addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-
                 list.clear();
                 listFull.clear();
+                listActive.clear();
 
                 for (DataSnapshot data : snapshot.getChildren()) {
-
                     String uid = data.getKey();
 
-                    if (uid == null) continue;
+                    // 1. Loại bỏ chính mình
+                    if (uid == null || uid.equals(currentUid)) continue;
 
-                    // 🚫 bỏ chính mình
-                    if (uid.equals(currentUid)) continue;
+                    // 2. Kiểm tra xem đã từng nhắn tin chưa
+                    // Nếu lastMessage rỗng (null), nghĩa là chưa bao giờ nhắn tin -> Bỏ qua
+                    String lastMsg = data.child("lastMessage").getValue(String.class);
+                    if (lastMsg == null || lastMsg.isEmpty()) continue;
 
                     String name = data.child("name").getValue(String.class);
                     String avatar = data.child("avatar").getValue(String.class);
+                    String status = data.child("status").getValue(String.class);
+                    Long lastTime = data.child("lastTime").getValue(Long.class);
 
-                    User chat = new User(
+                    // Xử lý giá trị mặc định cho an toàn
+                    if (lastTime == null) lastTime = System.currentTimeMillis();
+                    if (status == null) status = "offline";
+
+                    User userObj = new User(
                             uid,
                             name != null ? name : "Unknown",
                             avatar != null ? avatar : "",
-                            "Chưa có tin nhắn",
-                            System.currentTimeMillis()
+                            lastMsg,
+                            lastTime,
+                            status
                     );
 
-                    list.add(chat);
-                    listFull.add(chat);
+                    // 3. Phân loại vào danh sách Active Now (Nếu đang Online)
+                    if ("online".equals(status)) {
+                        listActive.add(userObj);
+                    }
+
+                    // 4. Thêm vào danh sách Chat chính
+                    list.add(userObj);
+                    listFull.add(userObj);
                 }
 
+                // 5. Sắp xếp danh sách chat theo thời gian mới nhất lên đầu
+                list.sort((o1, o2) -> Long.compare(o2.lastTime, o1.lastTime));
+
                 adapter.notifyDataSetChanged();
+                activeAdapter.notifyDataSetChanged();
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-                Toast.makeText(getContext(), "Lỗi load dữ liệu", Toast.LENGTH_SHORT).show();
+                if(getContext() != null)
+                    Toast.makeText(getContext(), "Lỗi load dữ liệu", Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+
+    private SharedPreferences getSharedPreferencesSafe() {
+        if (getContext() != null) {
+            return getContext().getSharedPreferences("USER", android.content.Context.MODE_PRIVATE);
+        }
+        return null;
     }
 
     // 🔍 Search user
@@ -141,13 +188,11 @@ public class ChatFragment extends Fragment {
 
     private void filter(String text) {
         list.clear();
-
         for (User item : listFull) {
             if (item.name.toLowerCase().contains(text.toLowerCase())) {
                 list.add(item);
             }
         }
-
         adapter.notifyDataSetChanged();
     }
 }

@@ -8,12 +8,14 @@ public class User {
     public String avatar;
     public String lastMessage;
     public long lastTime;
+    public String status;
 
     public User() {
         // Firebase cần constructor rỗng
     }
 
-    public User(String uid, String name, String phone, String bio, String avatar, String lastMessage, long lastTime) {
+    // 1. Constructor đầy đủ 8 tham số (Dùng cho thông tin cá nhân chi tiết)
+    public User(String uid, String name, String phone, String bio, String avatar, String lastMessage, long lastTime, String status) {
         this.uid = uid;
         this.name = name;
         this.phone = phone;
@@ -21,14 +23,17 @@ public class User {
         this.avatar = avatar;
         this.lastMessage = lastMessage;
         this.lastTime = lastTime;
+        this.status = status;
     }
 
-    public User(String uid, String name, String avatar, String lastMessage, long lastTime) {
+    // 2. Constructor 6 tham số (Dùng cho ChatFragment của bạn)
+    public User(String uid, String name, String avatar, String lastMessage, long lastTime, String status) {
         this.uid = uid;
         this.name = name;
         this.avatar = avatar;
         this.lastMessage = lastMessage;
         this.lastTime = lastTime;
+        this.status = status;
     }
 
     public String getUid() {
@@ -85,5 +90,13 @@ public class User {
 
     public void setLastTime(long lastTime) {
         this.lastTime = lastTime;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 }
