@@ -62,7 +62,12 @@ public class ManHinhDangNhap extends AppCompatActivity {
         });
 
         tvLoginForgotPassword.setOnClickListener(v -> {
-            startActivity(new Intent(this, ManHinhGuiOTP.class));
+            String input = edtLoginEmailOrPhone.getText().toString().trim();
+            Intent intent = new Intent(this, ManHinhGuiOTP.class);
+            if (!TextUtils.isEmpty(input)) {
+                intent.putExtra("user_input", input);
+            }
+            startActivity(intent);
         });
 
         btnLogin.setOnClickListener(v -> handleLogin());
