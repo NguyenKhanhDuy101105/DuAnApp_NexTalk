@@ -73,8 +73,21 @@ public class SettingFragment extends Fragment {
         });
 
         // Sự kiện Đổi mật khẩu (nếu bạn có màn hình này)
+        // Trong file SettingFragment.java, tìm đến phương thức setupEvents() và sửa lại:
+
         itemPrivacy.setOnClickListener(v -> {
-            Toast.makeText(getContext(), "Tính năng đang phát triển", Toast.LENGTH_SHORT).show();
+            ChangePasswordFragment changePasswordFragment = new ChangePasswordFragment();
+
+            getParentFragmentManager().beginTransaction()
+                    .setCustomAnimations(
+                            android.R.anim.fade_in,
+                            android.R.anim.fade_out,
+                            android.R.anim.fade_in,
+                            android.R.anim.fade_out
+                    )
+                    .replace(R.id.fragment_container, changePasswordFragment)
+                    .addToBackStack(null)
+                    .commit();
         });
 
         // Sự kiện Đăng xuất
