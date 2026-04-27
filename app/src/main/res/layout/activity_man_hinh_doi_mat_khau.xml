@@ -6,7 +6,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/_background"
-    tools:context=".ManHinhGuiOTP">
+    tools:context=".ManHinhDoiMatKhau">
 
     <LinearLayout
         android:id="@+id/layoutHeader"
@@ -52,7 +52,7 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
                 android:layout_marginTop="20dp"
-                android:text="QUÊN MẬT KHẨU"
+                android:text="ĐẶT LẠI MẬT KHẨU"
                 android:textStyle="bold"
                 android:textColor="#5C8EE6"
                 android:textSize="22sp" />
@@ -63,38 +63,61 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
                 android:layout_marginTop="15dp"
-                android:text="Vui lòng nhập email để nhận mã OTP"
+                android:text="Vui lòng nhập mật khẩu mới cho tài khoản của bạn"
                 android:textColor="#5C8EE6"
                 android:textSize="14sp"
                 android:gravity="center" />
 
             <com.google.android.material.textfield.TextInputLayout
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                android:id="@+id/tilEmail"
+                android:id="@+id/tilPassword"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="30dp"
+                android:layout_marginTop="25dp"
                 app:boxCornerRadiusBottomEnd="12dp"
                 app:boxCornerRadiusBottomStart="12dp"
                 app:boxCornerRadiusTopEnd="12dp"
                 app:boxCornerRadiusTopStart="12dp"
-                app:startIconDrawable="@android:drawable/ic_dialog_email"
+                app:passwordToggleEnabled="true"
+                app:startIconDrawable="@android:drawable/ic_lock_idle_lock"
                 app:startIconTint="#5C8EE6">
 
                 <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/edtEmail"
+                    android:id="@+id/edtPassword"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Nhập email của bạn"
-                    android:inputType="textEmailAddress" />
+                    android:hint="Mật khẩu mới"
+                    android:inputType="textPassword" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:id="@+id/tilConfirmPassword"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="15dp"
+                app:boxCornerRadiusBottomEnd="12dp"
+                app:boxCornerRadiusBottomStart="12dp"
+                app:boxCornerRadiusTopEnd="12dp"
+                app:boxCornerRadiusTopStart="12dp"
+                app:passwordToggleEnabled="true"
+                app:startIconDrawable="@android:drawable/ic_lock_idle_lock"
+                app:startIconTint="#5C8EE6">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/edtConfirmPassword"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Xác nhận mật khẩu"
+                    android:inputType="textPassword" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnSendOTP"
+                android:id="@+id/btnResetPassword"
                 android:layout_width="match_parent"
                 android:layout_height="60dp"
                 android:layout_marginTop="30dp"
-                android:text="Gửi mã xác nhận"
+                android:text="Cập nhật mật khẩu"
                 android:textAllCaps="false"
                 android:textColor="@color/white"
                 android:textSize="18sp"
