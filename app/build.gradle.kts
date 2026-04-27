@@ -55,6 +55,9 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:34.12.0"))
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-database")
+    implementation("com.google.firebase:firebase-storage")
+    // Materials
+    implementation("com.google.android.material:material:1.9.0")
 
     // JavaMail API dependencies for sending emails
     implementation("com.sun.mail:android-mail:1.6.7")
