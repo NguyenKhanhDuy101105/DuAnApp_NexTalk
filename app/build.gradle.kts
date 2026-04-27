@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace = "com.example.nextalkapp"
-    compileSdk = 36
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.example.nextalkapp"
         minSdk = 25
-        targetSdk = 36
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
@@ -29,6 +29,13 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+    }
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            merges += "META-INF/NOTICE.md"
+            merges += "META-INF/LICENSE.md"
+        }
     }
 }
 
@@ -51,4 +58,8 @@ dependencies {
     implementation("com.google.firebase:firebase-storage")
     // Materials
     implementation("com.google.android.material:material:1.9.0")
+
+    // JavaMail API dependencies for sending emails
+    implementation("com.sun.mail:android-mail:1.6.7")
+    implementation("com.sun.mail:android-activation:1.6.7")
 }
