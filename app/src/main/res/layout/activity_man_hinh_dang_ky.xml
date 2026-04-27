@@ -53,7 +53,7 @@
                 app:boxCornerRadiusBottomStart="12dp"
                 app:boxCornerRadiusTopEnd="12dp"
                 app:boxCornerRadiusTopStart="12dp"
-                app:startIconDrawable="@android:drawable/ic_menu_my_calendar"
+                app:startIconDrawable="@drawable/ic_human"
                 app:startIconTint="#5C8EE6">
 
                 <com.google.android.material.textfield.TextInputEditText

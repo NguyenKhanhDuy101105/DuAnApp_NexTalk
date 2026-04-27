@@ -54,6 +54,13 @@ public class MessageActivity extends AppCompatActivity {
         setContentView(R.layout.activity_message);
 
         receiverUid = getIntent().getStringExtra("receiverUid");
+
+        if (receiverUid == null || receiverUid.isEmpty()) {
+            Toast.makeText(this, "Không tìm thấy ID người dùng!", Toast.LENGTH_SHORT).show();
+            finish(); // Thoát Activity ngay để không crash các hàm phía dưới
+            return;
+        }
+
         receiverName = getIntent().getStringExtra("receiverName");
         receiverAvatar = getIntent().getStringExtra("receiverAvatar");
 
@@ -109,7 +116,13 @@ public class MessageActivity extends AppCompatActivity {
     }
 
     private void displayReceiverInfo() {
-        tvReceiverName.setText(receiverName);
+        // Thêm kiểm tra null để tránh crash app
+        if (receiverName != null) {
+            tvReceiverName.setText(receiverName);
+        } else {
+            tvReceiverName.setText("Người dùng");
+        }
+
         if (receiverAvatar != null && !receiverAvatar.isEmpty()) {
             Glide.with(this).load(receiverAvatar).placeholder(R.drawable.logo2).into(imgReceiverAvatar);
         } else {
@@ -142,8 +155,10 @@ public class MessageActivity extends AppCompatActivity {
                     }
                 }
             }
+
             @Override
-            public void onCancelled(@NonNull DatabaseError error) {}
+            public void onCancelled(@NonNull DatabaseError error) {
+            }
         });
     }
 
@@ -167,7 +182,8 @@ public class MessageActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onCancelled(@NonNull DatabaseError error) {}
+            public void onCancelled(@NonNull DatabaseError error) {
+            }
         });
     }
 
@@ -206,8 +222,10 @@ public class MessageActivity extends AppCompatActivity {
                     }
                 }
             }
+
             @Override
-            public void onCancelled(@NonNull DatabaseError error) {}
+            public void onCancelled(@NonNull DatabaseError error) {
+            }
         });
     }
 

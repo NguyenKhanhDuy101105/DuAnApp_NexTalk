@@ -25,6 +25,7 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class FriendFragment extends Fragment {
@@ -81,39 +82,34 @@ public class FriendFragment extends Fragment {
                 listFull.clear();
 
                 for (DataSnapshot data : snapshot.getChildren()) {
-                    // Lấy UID từ Key của node (đây là cách an toàn nhất)
                     String uid = data.getKey();
-
-                    // 1. Loại bỏ bản thân khỏi danh bạ
                     if (uid == null || uid.equals(currentUid)) continue;
 
-                    // 2. Lấy dữ liệu từng trường một cách an toàn (tránh lỗi ép kiểu POJO)
                     String name = data.child("name").getValue(String.class);
                     String avatar = data.child("avatar").getValue(String.class);
                     String status = data.child("status").getValue(String.class);
-                    String phone = data.child("phone").getValue(String.class);
-                    String bio = data.child("bio").getValue(String.class);
-                    String lastMsg = data.child("lastMessage").getValue(String.class);
 
-                    // Xử lý riêng cho kiểu Long để tránh crash
-                    Long lastTimeObj = data.child("lastTime").getValue(Long.class);
-                    long lastTime = (lastTimeObj != null) ? lastTimeObj : System.currentTimeMillis();
-
-                    // 3. Khởi tạo đối tượng User thủ công
-                    User user = new User(
-                            uid,
-                            name != null ? name : "Người dùng NexTalk",
-                            phone != null ? phone : "",
-                            bio != null ? bio : "",
-                            avatar != null ? avatar : "",
-                            lastMsg != null ? lastMsg : "",
-                            lastTime,
-                            status != null ? status : "offline"
-                    );
+                    User user = new User();
+                    user.uid = uid;
+                    user.name = (name != null) ? name : "Người dùng NexTalk";
+                    user.avatar = (avatar != null) ? avatar : "";
+                    user.status = (status != null) ? status : "offline";
 
                     listUsers.add(user);
                     listFull.add(user);
                 }
+
+                // 🔥 BƯỚC QUAN TRỌNG: Sắp xếp ưu tiên Online lên đầu
+                Collections.sort(listUsers, (u1, u2) -> {
+                    if (u1.status.equals("online") && !u2.status.equals("online")) return -1;
+                    if (!u1.status.equals("online") && u2.status.equals("online")) return 1;
+                    return 0; // Giữ nguyên thứ tự nếu cùng trạng thái
+                });
+
+                // Cập nhật listFull để khi search cũng theo thứ tự này
+                listFull.clear();
+                listFull.addAll(listUsers);
+
                 adapter.notifyDataSetChanged();
             }
 
@@ -127,10 +123,12 @@ public class FriendFragment extends Fragment {
         searchBar.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 filter(s.toString());
             }
+
             @Override
             public void afterTextChanged(Editable s) {}
         });

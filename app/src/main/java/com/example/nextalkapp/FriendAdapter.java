@@ -27,7 +27,6 @@ public class FriendAdapter extends RecyclerView.Adapter<FriendAdapter.FriendView
     @NonNull
     @Override
     public FriendViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        // Tái sử dụng item_chat
         View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_chat, parent, false);
         return new FriendViewHolder(view);
     }
@@ -37,11 +36,19 @@ public class FriendAdapter extends RecyclerView.Adapter<FriendAdapter.FriendView
         User user = list.get(position);
         holder.txtName.setText(user.name);
 
-        // Ẩn tin nhắn cuối, thời gian và chấm online vì đây là danh bạ thuần túy
+        // 1. Hiển thị chấm trạng thái
+        holder.viewStatusChat.setVisibility(View.VISIBLE);
+        if ("online".equals(user.status)) {
+            holder.viewStatusChat.setBackgroundResource(R.drawable.bg_status_online);
+        } else {
+            holder.viewStatusChat.setBackgroundResource(R.drawable.bg_status_offline);
+        }
+
+        // 2. Ẩn tin nhắn cuối và thời gian cho gọn danh bạ
         holder.txtLastMessage.setVisibility(View.GONE);
         holder.txtTime.setVisibility(View.GONE);
-        holder.viewStatusChat.setVisibility(View.GONE);
 
+        // 3. Xử lý Avatar
         if (user.avatar != null && !user.avatar.isEmpty()) {
             Glide.with(holder.itemView.getContext())
                     .load(user.avatar)
@@ -67,7 +74,7 @@ public class FriendAdapter extends RecyclerView.Adapter<FriendAdapter.FriendView
     public static class FriendViewHolder extends RecyclerView.ViewHolder {
         ImageView imgAvatar;
         TextView txtName, txtLastMessage, txtTime;
-        View viewStatusChat; // Phải có biến này để ánh xạ từ item_chat
+        View viewStatusChat;
 
         public FriendViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -75,7 +82,7 @@ public class FriendAdapter extends RecyclerView.Adapter<FriendAdapter.FriendView
             txtName = itemView.findViewById(R.id.txtName);
             txtLastMessage = itemView.findViewById(R.id.txtLastMessage);
             txtTime = itemView.findViewById(R.id.txtTime);
-            viewStatusChat = itemView.findViewById(R.id.viewStatusChat); // Ánh xạ để tránh crash
+            viewStatusChat = itemView.findViewById(R.id.viewStatusChat);
         }
     }
 }

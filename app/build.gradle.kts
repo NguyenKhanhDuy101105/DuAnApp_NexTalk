@@ -50,4 +50,8 @@ dependencies {
     implementation("com.google.firebase:firebase-database")
     // Materials
     implementation("com.google.android.material:material:1.9.0")
+    // Toasty
+    implementation("com.github.GrenderG:Toasty:1.5.2")
+    // MotionToast
+    implementation("com.github.Spikeysanju:MotionToast:1.4")
 }
