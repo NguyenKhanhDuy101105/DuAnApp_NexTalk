@@ -9,7 +9,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -31,58 +30,39 @@ public class ChatFragment extends Fragment {
 
     private RecyclerView rcvChats, rcvActiveNow;
     private EditText searchBar;
-
     private ChatAdapter adapter;
-    private ActiveAdapter activeAdapter; // Adapter cho danh sách ngang
-
-    private List<User> list;
-    private List<User> listFull; // dùng cho search
-    private List<User> listActive; // Danh sách người dùng đang online
-
+    private ActiveAdapter activeAdapter;
+    private List<User> list, listFull, listActive;
     private DatabaseReference dbRef;
 
-    public ChatFragment() {
-        // Required empty public constructor
-    }
+    public ChatFragment() {}
 
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
-                             @Nullable Bundle savedInstanceState) {
-
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_chat, container, false);
-
-        // 🔗 Mapping
         rcvChats = view.findViewById(R.id.rcvChats);
         rcvActiveNow = view.findViewById(R.id.rcvActiveNow);
         searchBar = view.findViewById(R.id.search_bar);
 
-        // 🔧 Setup Dữ liệu
         list = new ArrayList<>();
         listFull = new ArrayList<>();
         listActive = new ArrayList<>();
 
-        // 🔧 Setup RecyclerView Chat chính (Dọc)
         adapter = new ChatAdapter(list, user -> startChatMessage(user));
         rcvChats.setLayoutManager(new LinearLayoutManager(getContext()));
         rcvChats.setAdapter(adapter);
 
-        // 🔧 Setup RecyclerView Active Now (Ngang)
         activeAdapter = new ActiveAdapter(listActive, user -> startChatMessage(user));
-        LinearLayoutManager horizontalLayoutManager = new LinearLayoutManager(getContext(), LinearLayoutManager.HORIZONTAL, false);
-        rcvActiveNow.setLayoutManager(horizontalLayoutManager);
+        rcvActiveNow.setLayoutManager(new LinearLayoutManager(getContext(), LinearLayoutManager.HORIZONTAL, false));
         rcvActiveNow.setAdapter(activeAdapter);
 
-        // 🔥 Firebase
         dbRef = FirebaseDatabase.getInstance().getReference();
-
         loadUsers();
         setupSearch();
-
         return view;
     }
 
-    // Hàm bổ trợ để chuyển màn hình Chat
     private void startChatMessage(User user) {
         Intent intent = new Intent(getActivity(), MessageActivity.class);
         intent.putExtra("receiverUid", user.uid);
@@ -91,32 +71,25 @@ public class ChatFragment extends Fragment {
         startActivity(intent);
     }
 
-    // 📥 Load danh sách user
     private void loadUsers() {
         if (getContext() == null) return;
-
-        SharedPreferences prefs = getSharedPreferencesSafe();
-        String currentUid = (prefs != null) ? prefs.getString("uid", null) : null;
-
+        SharedPreferences prefs = getContext().getSharedPreferences("USER", android.content.Context.MODE_PRIVATE);
+        String currentUid = prefs.getString("uid", null);
         if (currentUid == null) return;
 
-        // Vẫn trỏ vào "users" vì bạn đang lưu lastMessage trực tiếp trong User object
         dbRef.child("users").addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                list.clear();
-                listFull.clear();
-                listActive.clear();
+                // Sử dụng list tạm để tránh việc RecyclerView update liên tục gây lag
+                List<User> tempChatList = new ArrayList<>();
+                List<User> tempActiveList = new ArrayList<>();
 
                 for (DataSnapshot data : snapshot.getChildren()) {
                     String uid = data.getKey();
-
-                    // 1. Loại bỏ chính mình
                     if (uid == null || uid.equals(currentUid)) continue;
 
-                    // 2. Kiểm tra xem đã từng nhắn tin chưa
-                    // Nếu lastMessage rỗng (null), nghĩa là chưa bao giờ nhắn tin -> Bỏ qua
                     String lastMsg = data.child("lastMessage").getValue(String.class);
+                    // Nếu rỗng nghĩa là chưa có chat hoặc đã xóa hết sạch tin nhắn
                     if (lastMsg == null || lastMsg.isEmpty()) continue;
 
                     String name = data.child("name").getValue(String.class);
@@ -124,63 +97,36 @@ public class ChatFragment extends Fragment {
                     String status = data.child("status").getValue(String.class);
                     Long lastTime = data.child("lastTime").getValue(Long.class);
 
-                    // Xử lý giá trị mặc định cho an toàn
-                    if (lastTime == null) lastTime = System.currentTimeMillis();
-                    if (status == null) status = "offline";
+                    User userObj = new User(uid, name, avatar, lastMsg, lastTime != null ? lastTime : 0, status);
 
-                    User userObj = new User(
-                            uid,
-                            name != null ? name : "Unknown",
-                            avatar != null ? avatar : "",
-                            lastMsg,
-                            lastTime,
-                            status
-                    );
-
-                    // 3. Phân loại vào danh sách Active Now (Nếu đang Online)
-                    if ("online".equals(status)) {
-                        listActive.add(userObj);
-                    }
-
-                    // 4. Thêm vào danh sách Chat chính
-                    list.add(userObj);
-                    listFull.add(userObj);
+                    if ("online".equals(status)) tempActiveList.add(userObj);
+                    tempChatList.add(userObj);
                 }
 
-                // 5. Sắp xếp danh sách chat theo thời gian mới nhất lên đầu
-                list.sort((o1, o2) -> Long.compare(o2.lastTime, o1.lastTime));
+                tempChatList.sort((o1, o2) -> Long.compare(o2.lastTime, o1.lastTime));
+
+                // Cập nhật dữ liệu vào list chính
+                list.clear();
+                list.addAll(tempChatList);
+                listFull.clear();
+                listFull.addAll(tempChatList);
+                listActive.clear();
+                listActive.addAll(tempActiveList);
 
                 adapter.notifyDataSetChanged();
                 activeAdapter.notifyDataSetChanged();
             }
 
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                if(getContext() != null)
-                    Toast.makeText(getContext(), "Lỗi load dữ liệu", Toast.LENGTH_SHORT).show();
-            }
+            @Override public void onCancelled(@NonNull DatabaseError error) {}
         });
     }
 
-
-    private SharedPreferences getSharedPreferencesSafe() {
-        if (getContext() != null) {
-            return getContext().getSharedPreferences("USER", android.content.Context.MODE_PRIVATE);
-        }
-        return null;
-    }
-
-    // 🔍 Search user
     private void setupSearch() {
         searchBar.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
             @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-                filter(s.toString());
-            }
-
+            public void onTextChanged(CharSequence s, int start, int before, int count) { filter(s.toString()); }
             @Override
             public void afterTextChanged(Editable s) {}
         });
@@ -189,9 +135,7 @@ public class ChatFragment extends Fragment {
     private void filter(String text) {
         list.clear();
         for (User item : listFull) {
-            if (item.name.toLowerCase().contains(text.toLowerCase())) {
-                list.add(item);
-            }
+            if (item.name.toLowerCase().contains(text.toLowerCase())) list.add(item);
         }
         adapter.notifyDataSetChanged();
     }

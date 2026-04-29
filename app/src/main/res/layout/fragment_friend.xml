@@ -9,7 +9,7 @@
         android:id="@+id/search_bar_friend"
         android:layout_width="match_parent"
         android:layout_height="45dp"
-        android:layout_marginHorizontal="12dp"
+        android:layout_marginHorizontal="10dp"
         android:layout_marginVertical="10dp"
         android:background="@drawable/bg_search_white"
         android:hint="Tìm kiếm tên hoặc email..."

@@ -3,28 +3,35 @@ package com.example.nextalkapp;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.TextUtils;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.res.ResourcesCompat;
 import androidx.fragment.app.Fragment;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
+import www.sanju.motiontoast.MotionToast;
+import www.sanju.motiontoast.MotionToastStyle;
+
 public class ChangePasswordFragment extends Fragment {
 
     private ImageButton btnBack;
+    private TextInputLayout tilCurrent, tilNew, tilConfirm;
     private TextInputEditText edtCurrentPassword, edtNewPassword, edtConfirmNewPassword;
     private MaterialButton btnConfirmChange, btnCancel;
     private DatabaseReference dbRef;
@@ -38,68 +45,122 @@ public class ChangePasswordFragment extends Fragment {
         mapping(view);
         dbRef = FirebaseDatabase.getInstance().getReference();
 
-        SharedPreferences prefs = getContext().getSharedPreferences("USER", Context.MODE_PRIVATE);
-        currentUid = prefs.getString("uid", null);
+        if (getContext() != null) {
+            SharedPreferences prefs = getContext().getSharedPreferences("USER", Context.MODE_PRIVATE);
+            currentUid = prefs.getString("uid", null);
+        }
 
-        btnBack.setOnClickListener(v -> getParentFragmentManager().popBackStack());
-        btnCancel.setOnClickListener(v -> getParentFragmentManager().popBackStack());
-
-        btnConfirmChange.setOnClickListener(v -> handleChangePassword());
-
+        setupListeners();
         return view;
     }
 
     private void mapping(View view) {
         btnBack = view.findViewById(R.id.btnBack);
+
+        // Đã đồng bộ ID chuẩn xác với file XML ở trên
+        tilCurrent = view.findViewById(R.id.tilCurrent);
+        tilNew = view.findViewById(R.id.tilNewPassword);
+        tilConfirm = view.findViewById(R.id.tilConfirmNewPassword);
+
         edtCurrentPassword = view.findViewById(R.id.edtCurrentPassword);
         edtNewPassword = view.findViewById(R.id.edtNewPassword);
         edtConfirmNewPassword = view.findViewById(R.id.edtConfirmNewPassword);
+
         btnConfirmChange = view.findViewById(R.id.btnConfirmChange);
         btnCancel = view.findViewById(R.id.btnCancel);
     }
 
+    private void setupListeners() {
+        btnBack.setOnClickListener(v -> getParentFragmentManager().popBackStack());
+        btnCancel.setOnClickListener(v -> getParentFragmentManager().popBackStack());
+        btnConfirmChange.setOnClickListener(v -> handleChangePassword());
+
+        // Tự động xóa thông báo lỗi khi người dùng gõ phím
+        addTextWatcher(edtCurrentPassword, tilCurrent);
+        addTextWatcher(edtNewPassword, tilNew);
+        addTextWatcher(edtConfirmNewPassword, tilConfirm);
+    }
+
     private void handleChangePassword() {
+        tilCurrent.setError(null);
+        tilNew.setError(null);
+        tilConfirm.setError(null);
+
         String currentPass = edtCurrentPassword.getText().toString().trim();
         String newPass = edtNewPassword.getText().toString().trim();
         String confirmPass = edtConfirmNewPassword.getText().toString().trim();
 
-        // 1. Kiểm tra rỗng
-        if (TextUtils.isEmpty(currentPass) || TextUtils.isEmpty(newPass) || TextUtils.isEmpty(confirmPass)) {
-            Toast.makeText(getContext(), "Vui lòng nhập đầy đủ thông tin", Toast.LENGTH_SHORT).show();
+        // 1. Validation cơ bản
+        if (TextUtils.isEmpty(currentPass)) {
+            tilCurrent.setError("Vui lòng nhập mật khẩu hiện tại");
+            edtCurrentPassword.requestFocus();
             return;
         }
-
-        // 2. Kiểm tra mật khẩu mới hợp lệ (Độ dài >= 8 và có ký tự đặc biệt)
+        if (TextUtils.isEmpty(newPass)) {
+            tilNew.setError("Vui lòng nhập mật khẩu mới");
+            edtNewPassword.requestFocus();
+            return;
+        }
         if (!newPass.matches("^(?=.*[!@#$%^&*]).{8,}$")) {
-            Toast.makeText(getContext(), "Mật khẩu mới phải từ 8 ký tự và có ký tự đặc biệt", Toast.LENGTH_LONG).show();
+            tilNew.setError("Mật khẩu phải >= 8 ký tự và có ký tự đặc biệt");
+            edtNewPassword.requestFocus();
+            showMotionToast("Bảo mật yếu", "Mật khẩu chưa đủ mạnh", MotionToastStyle.ERROR);
             return;
         }
-
-        // 3. Kiểm tra mật khẩu mới và xác nhận trùng khớp
         if (!newPass.equals(confirmPass)) {
-            Toast.makeText(getContext(), "Mật khẩu mới không trùng khớp", Toast.LENGTH_SHORT).show();
+            tilConfirm.setError("Mật khẩu xác nhận không khớp");
+            edtConfirmNewPassword.requestFocus();
             return;
         }
 
         if (currentUid == null) return;
 
-        // 4. Kiểm tra mật khẩu hiện tại trên Firebase
+        // 2. Xử lý Database
         String hashedCurrent = hashPassword(currentPass);
         dbRef.child("users").child(currentUid).child("password").get().addOnSuccessListener(snapshot -> {
             String dbPassword = snapshot.getValue(String.class);
             if (dbPassword != null && dbPassword.equals(hashedCurrent)) {
-                // 5. Lưu mật khẩu mới (đã mã hóa)
+
                 String hashedNew = hashPassword(newPass);
                 dbRef.child("users").child(currentUid).child("password").setValue(hashedNew)
                         .addOnSuccessListener(unused -> {
-                            Toast.makeText(getContext(), "Đổi mật khẩu thành công", Toast.LENGTH_SHORT).show();
+                            showMotionToast("Thành công", "Đã cập nhật mật khẩu mới", MotionToastStyle.SUCCESS);
                             getParentFragmentManager().popBackStack();
                         })
-                        .addOnFailureListener(e -> Toast.makeText(getContext(), "Lỗi kết nối CSDL", Toast.LENGTH_SHORT).show());
+                        .addOnFailureListener(e -> showMotionToast("Lỗi", "Không thể kết nối CSDL", MotionToastStyle.ERROR));
             } else {
-                Toast.makeText(getContext(), "Mật khẩu hiện tại không đúng", Toast.LENGTH_SHORT).show();
+                tilCurrent.setError("Mật khẩu hiện tại không đúng");
+                edtCurrentPassword.requestFocus();
+                showMotionToast("Thất bại", "Mật khẩu cũ không chính xác", MotionToastStyle.ERROR);
             }
-        }).addOnFailureListener(e -> Toast.makeText(getContext(), "Lỗi hệ thống", Toast.LENGTH_SHORT).show());
+        }).addOnFailureListener(e -> showMotionToast("Lỗi hệ thống", "Vui lòng thử lại sau", MotionToastStyle.ERROR));
+    }
+
+    private void addTextWatcher(TextInputEditText editText, TextInputLayout inputLayout) {
+        editText.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                // Khi người dùng gõ, xóa lỗi và tắt luôn vùng hiển thị lỗi để thu hẹp khoảng cách
+                if (inputLayout.isErrorEnabled()) {
+                    inputLayout.setError(null);
+                    inputLayout.setErrorEnabled(false);
+                }
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {}
+        });
+    }
+
+    private void showMotionToast(String title, String message, MotionToastStyle style) {
+        if (getActivity() != null) {
+            MotionToast.Companion.createColorToast(getActivity(), title, message, style,
+                    MotionToast.GRAVITY_BOTTOM, MotionToast.LONG_DURATION,
+                    ResourcesCompat.getFont(getContext(), www.sanju.motiontoast.R.font.helvetica_regular));
+        }
     }
 
     private String hashPassword(String password) {

@@ -2,13 +2,13 @@ package com.example.nextalkapp;
 
 import android.content.Intent;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.widget.EditText;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -21,6 +21,9 @@ import com.google.android.material.button.MaterialButton;
 import java.util.Locale;
 import java.util.Random;
 
+import www.sanju.motiontoast.MotionToast;
+import www.sanju.motiontoast.MotionToastStyle;
+
 public class ManHinhNhapOTP extends AppCompatActivity {
 
     private TextView tvDescription, tvTimer, tvResendOtp;
@@ -28,9 +31,9 @@ public class ManHinhNhapOTP extends AppCompatActivity {
     private MaterialButton btnVerify;
     private CountDownTimer countDownTimer;
     private CountDownTimer resendTimer;
-    private String correctOtp; 
+    private String correctOtp;
     private String userEmail;
-    private boolean isOtpExpired = false; // Biến đánh dấu OTP hết hạn
+    private boolean isOtpExpired = false;
     private static final long START_TIME_IN_MILLIS = 180000; // 3 phút
     private static final long RESEND_TIME_IN_MILLIS = 30000; // 30 giây
 
@@ -39,21 +42,14 @@ public class ManHinhNhapOTP extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_man_hinh_nhap_otp);
+
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
 
-        // Ánh xạ
-        tvDescription = findViewById(R.id.tvDescription);
-        tvTimer = findViewById(R.id.tvTimer);
-        tvResendOtp = findViewById(R.id.tvResendOtp);
-        edtOtp1 = findViewById(R.id.edtOtp1);
-        edtOtp2 = findViewById(R.id.edtOtp2);
-        edtOtp3 = findViewById(R.id.edtOtp3);
-        edtOtp4 = findViewById(R.id.edtOtp4);
-        btnVerify = findViewById(R.id.btnVerify);
+        mapping();
 
         // 1. Nhận dữ liệu
         userEmail = getIntent().getStringExtra("otp_destination");
@@ -67,43 +63,63 @@ public class ManHinhNhapOTP extends AppCompatActivity {
         startTimer();
         startResendTimer();
 
-        tvResendOtp.setOnClickListener(v -> {
-            // Tạo mã mới
-            correctOtp = String.valueOf(new Random().nextInt(9000) + 1000);
-            isOtpExpired = false; // Reset trạng thái hết hạn
-            
-            // Gửi mail thật
-            String subject = "NexTalk - Mã xác thực mới";
-            String messageContent = "Chào bạn, mã OTP mới của bạn là: " + correctOtp;
-            JavaMailAPI javaMailAPI = new JavaMailAPI(userEmail, subject, messageContent);
-            javaMailAPI.execute();
+        tvResendOtp.setOnClickListener(v -> handleResendOtp());
 
-            Toast.makeText(this, "Mã OTP mới đã được gửi", Toast.LENGTH_SHORT).show();
-            
-            startTimer(); 
-            startResendTimer();
-        });
+        btnVerify.setOnClickListener(v -> handleVerifyOtp());
+    }
 
-        btnVerify.setOnClickListener(v -> {
-            if (isOtpExpired) {
-                Toast.makeText(this, "Mã OTP đã hết hạn, vui lòng gửi lại mã mới", Toast.LENGTH_SHORT).show();
-                return;
-            }
+    private void mapping() {
+        tvDescription = findViewById(R.id.tvDescription);
+        tvTimer = findViewById(R.id.tvTimer);
+        tvResendOtp = findViewById(R.id.tvResendOtp);
+        edtOtp1 = findViewById(R.id.edtOtp1);
+        edtOtp2 = findViewById(R.id.edtOtp2);
+        edtOtp3 = findViewById(R.id.edtOtp3);
+        edtOtp4 = findViewById(R.id.edtOtp4);
+        btnVerify = findViewById(R.id.btnVerify);
+    }
 
-            String inputOtp = edtOtp1.getText().toString() + edtOtp2.getText().toString() + 
-                            edtOtp3.getText().toString() + edtOtp4.getText().toString();
-            
-            if (inputOtp.length() < 4) {
-                Toast.makeText(this, "Vui lòng nhập đủ 4 số", Toast.LENGTH_SHORT).show();
-            } else if (inputOtp.equals(correctOtp)) {
+    private void handleResendOtp() {
+        // Tạo mã mới
+        correctOtp = String.valueOf(new Random().nextInt(9000) + 1000);
+        isOtpExpired = false;
+
+        // Gửi mail thật
+        String subject = "NexTalk - Mã xác thực mới";
+        String messageContent = "Chào bạn, mã OTP mới của bạn là: " + correctOtp;
+        JavaMailAPI javaMailAPI = new JavaMailAPI(userEmail, subject, messageContent);
+        javaMailAPI.execute();
+
+        showMotionToast("Đã gửi lại", "Mã OTP mới đã được gửi đến Email của bạn", MotionToastStyle.SUCCESS);
+
+        startTimer();
+        startResendTimer();
+    }
+
+    private void handleVerifyOtp() {
+        if (isOtpExpired) {
+            showMotionToast("Mã hết hạn", "Vui lòng gửi lại mã mới để tiếp tục", MotionToastStyle.WARNING);
+            return;
+        }
+
+        String inputOtp = edtOtp1.getText().toString() + edtOtp2.getText().toString() +
+                edtOtp3.getText().toString() + edtOtp4.getText().toString();
+
+        if (inputOtp.length() < 4) {
+            showMotionToast("Thiếu thông tin", "Vui lòng nhập đủ 4 chữ số OTP", MotionToastStyle.INFO);
+        } else if (inputOtp.equals(correctOtp)) {
+            showMotionToast("Thành công", "Xác thực mã OTP chính xác", MotionToastStyle.SUCCESS);
+
+            // Delay một chút để người dùng kịp thấy Toast thành công
+            btnVerify.postDelayed(() -> {
                 Intent intent = new Intent(ManHinhNhapOTP.this, ManHinhDoiMatKhau.class);
                 intent.putExtra("user_email", userEmail);
                 startActivity(intent);
                 finish();
-            } else {
-                Toast.makeText(this, "Mã OTP không chính xác", Toast.LENGTH_SHORT).show();
-            }
-        });
+            }, 1000);
+        } else {
+            showMotionToast("Sai mã", "Mã OTP không chính xác, vui lòng kiểm tra lại", MotionToastStyle.ERROR);
+        }
     }
 
     private void setupOtpInputs() {
@@ -126,7 +142,7 @@ public class ManHinhNhapOTP extends AppCompatActivity {
             @Override
             public void onFinish() {
                 tvTimer.setText("OTP đã hết hạn");
-                isOtpExpired = true; // Đánh dấu mã đã hết hạn khi bộ đếm kết thúc
+                isOtpExpired = true;
             }
         }.start();
     }
@@ -134,7 +150,7 @@ public class ManHinhNhapOTP extends AppCompatActivity {
     private void startResendTimer() {
         tvResendOtp.setEnabled(false);
         tvResendOtp.setTextColor(Color.GRAY);
-        
+
         if (resendTimer != null) resendTimer.cancel();
         resendTimer = new CountDownTimer(RESEND_TIME_IN_MILLIS, 1000) {
             @Override
@@ -150,6 +166,16 @@ public class ManHinhNhapOTP extends AppCompatActivity {
                 tvResendOtp.setTextColor(Color.parseColor("#5C8EE6"));
             }
         }.start();
+    }
+
+    private void showMotionToast(String title, String message, MotionToastStyle style) {
+        MotionToast.Companion.createColorToast(this,
+                title,
+                message,
+                style,
+                MotionToast.GRAVITY_BOTTOM,
+                MotionToast.LONG_DURATION,
+                Typeface.SANS_SERIF);
     }
 
     @Override

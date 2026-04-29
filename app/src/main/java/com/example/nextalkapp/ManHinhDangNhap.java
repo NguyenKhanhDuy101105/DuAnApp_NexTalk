@@ -2,13 +2,14 @@ package com.example.nextalkapp;
 
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Typeface;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.TextUtils;
-import android.util.Log;
+import android.text.TextWatcher;
 import android.util.Patterns;
 import android.widget.CheckBox;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -18,20 +19,24 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
+import www.sanju.motiontoast.MotionToast;
+import www.sanju.motiontoast.MotionToastStyle;
+
 public class ManHinhDangNhap extends AppCompatActivity {
 
-    TextView tvLoginSignUp, tvLoginForgotPassword;
-    CheckBox cbLoginRemember;
-    MaterialButton btnLogin;
-    TextInputEditText edtLoginEmailOrPhone, edtLoginPassword;
-
-    DatabaseReference dbRef;
+    private TextView tvLoginSignUp, tvLoginForgotPassword;
+    private CheckBox cbLoginRemember;
+    private MaterialButton btnLogin;
+    private TextInputLayout tilLoginEmailOrPhone, tilLoginPassword;
+    private TextInputEditText edtLoginEmailOrPhone, edtLoginPassword;
+    private DatabaseReference dbRef;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,72 +51,67 @@ public class ManHinhDangNhap extends AppCompatActivity {
         });
 
         mapping();
-
         dbRef = FirebaseDatabase.getInstance().getReference();
 
-        // 🔥 Auto login nếu đã lưu
+        // Kiểm tra Auto login
         SharedPreferences pref = getSharedPreferences("USER", MODE_PRIVATE);
-        String savedUid = pref.getString("uid", null);
-        if (savedUid != null) {
+        if (pref.getString("uid", null) != null && pref.getBoolean("isRemembered", false)) {
             startActivity(new Intent(this, MainActivity.class));
             finish();
         }
 
-        tvLoginSignUp.setOnClickListener(v -> {
-            startActivity(new Intent(this, ManHinhDangKy.class));
-        });
-
-        tvLoginForgotPassword.setOnClickListener(v -> {
-            String input = edtLoginEmailOrPhone.getText().toString().trim();
-            Intent intent = new Intent(this, ManHinhGuiOTP.class);
-            if (!TextUtils.isEmpty(input)) {
-                intent.putExtra("user_input", input);
-            }
-            startActivity(intent);
-        });
-
-        btnLogin.setOnClickListener(v -> handleLogin());
+        setupListeners();
     }
 
     private void mapping() {
         tvLoginSignUp = findViewById(R.id.tvLoginSignUp);
         tvLoginForgotPassword = findViewById(R.id.tvLoginForgotPassword);
+
+        // Mapping TextInputLayout để hiện lỗi
+        tilLoginEmailOrPhone = findViewById(R.id.tilLoginEmailOrPhone);
+        tilLoginPassword = findViewById(R.id.tilLoginPassword);
+
         edtLoginEmailOrPhone = findViewById(R.id.edtLoginEmailOrPhone);
         edtLoginPassword = findViewById(R.id.edtLoginPassword);
         cbLoginRemember = findViewById(R.id.cbLoginRemember);
         btnLogin = findViewById(R.id.btnLogin);
     }
 
-    // 🔐 Hash password giống đăng ký
-    private String hashPassword(String password) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] bytes = md.digest(password.getBytes());
-            StringBuilder sb = new StringBuilder();
+    private void setupListeners() {
+        tvLoginSignUp.setOnClickListener(v -> startActivity(new Intent(this, ManHinhDangKy.class)));
 
-            for (byte b : bytes) {
-                sb.append(String.format("%02x", b));
-            }
+        tvLoginForgotPassword.setOnClickListener(v -> {
+            String input = edtLoginEmailOrPhone.getText().toString().trim();
+            Intent intent = new Intent(this, ManHinhGuiOTP.class);
+            if (!TextUtils.isEmpty(input)) intent.putExtra("user_input", input);
+            startActivity(intent);
+        });
 
-            return sb.toString();
-        } catch (NoSuchAlgorithmException e) {
-            return password;
-        }
+        btnLogin.setOnClickListener(v -> handleLogin());
+
+        // Thêm TextWatcher để tự xóa lỗi khi Duy gõ phím
+        addTextWatcher(edtLoginEmailOrPhone, tilLoginEmailOrPhone);
+        addTextWatcher(edtLoginPassword, tilLoginPassword);
     }
 
-    // 🚀 LOGIN
     private void handleLogin() {
+        // Reset lỗi
+        tilLoginEmailOrPhone.setError(null);
+        tilLoginPassword.setError(null);
+
         String input = edtLoginEmailOrPhone.getText().toString().trim();
         String password = edtLoginPassword.getText().toString().trim();
 
-        // 1️⃣ Validate input
-        if (TextUtils.isEmpty(input) || TextUtils.isEmpty(password)) {
-            Toast.makeText(this, "Vui lòng nhập đầy đủ thông tin", Toast.LENGTH_SHORT).show();
+        // 1. Validation rỗng
+        if (TextUtils.isEmpty(input)) {
+            tilLoginEmailOrPhone.setError("Vui lòng nhập Email hoặc SĐT");
+            edtLoginEmailOrPhone.requestFocus();
             return;
         }
 
-        if (password.length() < 8) {
-            Toast.makeText(this, "Mật khẩu tối thiểu 8 ký tự", Toast.LENGTH_SHORT).show();
+        if (TextUtils.isEmpty(password)) {
+            tilLoginPassword.setError("Vui lòng nhập mật khẩu");
+            edtLoginPassword.requestFocus();
             return;
         }
 
@@ -119,78 +119,96 @@ public class ManHinhDangNhap extends AppCompatActivity {
         SharedPreferences prefs = getSharedPreferences("USER", MODE_PRIVATE);
         SharedPreferences.Editor editor = prefs.edit();
 
-        // 🔍 TRƯỜNG HỢP 1: LOGIN BẰNG EMAIL
+        // TRƯỜNG HỢP 1: LOGIN EMAIL
         if (Patterns.EMAIL_ADDRESS.matcher(input).matches()) {
             dbRef.child("users").orderByChild("email").equalTo(input).get()
                     .addOnSuccessListener(snapshot -> {
                         if (!snapshot.exists()) {
-                            Toast.makeText(this, "Email không tồn tại", Toast.LENGTH_SHORT).show();
-                            return;
+                            tilLoginEmailOrPhone.setError("Email này chưa được đăng ký");
+                            edtLoginEmailOrPhone.requestFocus();
+                        } else {
+                            snapshot.getChildren().forEach(userSnap -> {
+                                String dbPass = userSnap.child("password").getValue(String.class);
+                                if (dbPass != null && dbPass.equals(hashedPassword)) {
+                                    processSuccessfulLogin(userSnap.getKey(), editor);
+                                } else {
+                                    tilLoginPassword.setError("Mật khẩu không chính xác");
+                                    edtLoginPassword.requestFocus();
+                                }
+                            });
                         }
-
-                        snapshot.getChildren().forEach(userSnap -> {
-                            String dbPassword = userSnap.child("password").getValue(String.class);
-                            if (dbPassword != null && dbPassword.equals(hashedPassword)) {
-                                String uid = userSnap.getKey();
-
-                                // Cập nhật trạng thái online
-                                dbRef.child("users").child(uid).child("status").setValue("online");
-
-                                // ✅ FIX LOGIC:
-                                // Bước A: Luôn luôn lưu UID để các màn hình sau (ChatFragment, MessageActivity) có dữ liệu
-                                editor.putString("uid", uid);
-
-                                // Bước B: Chỉ lưu Flag "isRemembered" nếu người dùng có tích chọn
-                                editor.putBoolean("isRemembered", cbLoginRemember.isChecked());
-                                editor.apply();
-
-                                Toast.makeText(this, "Đăng nhập thành công", Toast.LENGTH_SHORT).show();
-                                startActivity(new Intent(this, MainActivity.class));
-                                finish();
-                            } else {
-                                Toast.makeText(this, "Sai mật khẩu", Toast.LENGTH_SHORT).show();
-                            }
-                        });
-                    })
-                    .addOnFailureListener(e -> Toast.makeText(this, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                    });
         }
-
-        // 🔍 TRƯỜNG HỢP 2: LOGIN BẰNG SĐT
+        // TRƯỜNG HỢP 2: LOGIN SĐT
         else if (input.matches("^0\\d{9}$")) {
-            dbRef.child("phones").child(input).get()
-                    .addOnSuccessListener(snapshot -> {
-                        if (!snapshot.exists()) {
-                            Toast.makeText(this, "SĐT không tồn tại", Toast.LENGTH_SHORT).show();
-                            return;
+            dbRef.child("phones").child(input).get().addOnSuccessListener(snapshot -> {
+                if (!snapshot.exists()) {
+                    tilLoginEmailOrPhone.setError("Số điện thoại chưa được đăng ký");
+                    edtLoginEmailOrPhone.requestFocus();
+                } else {
+                    String uid = snapshot.getValue(String.class);
+                    dbRef.child("users").child(uid).get().addOnSuccessListener(userSnap -> {
+                        String dbPass = userSnap.child("password").getValue(String.class);
+                        if (dbPass != null && dbPass.equals(hashedPassword)) {
+                            processSuccessfulLogin(uid, editor);
+                        } else {
+                            tilLoginPassword.setError("Mật khẩu không chính xác");
+                            edtLoginPassword.requestFocus();
                         }
-
-                        String uid = snapshot.getValue(String.class);
-                        dbRef.child("users").child(uid).get()
-                                .addOnSuccessListener(userSnap -> {
-                                    String dbPassword = userSnap.child("password").getValue(String.class);
-                                    if (dbPassword != null && dbPassword.equals(hashedPassword)) {
-
-                                        dbRef.child("users").child(uid).child("status").setValue("online");
-
-                                        // ✅ FIX LOGIC: Tương tự như Email
-                                        editor.putString("uid", uid);
-                                        editor.putBoolean("isRemembered", cbLoginRemember.isChecked());
-                                        editor.apply();
-
-                                        Toast.makeText(this, "Đăng nhập thành công", Toast.LENGTH_SHORT).show();
-                                        startActivity(new Intent(this, MainActivity.class));
-                                        finish();
-                                    } else {
-                                        Toast.makeText(this, "Sai mật khẩu", Toast.LENGTH_SHORT).show();
-                                    }
-                                });
-                    })
-                    .addOnFailureListener(e -> Toast.makeText(this, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                    });
+                }
+            });
         }
-
-        // ❌ INVALID INPUT
         else {
-            Toast.makeText(this, "Nhập Email hoặc SĐT hợp lệ", Toast.LENGTH_SHORT).show();
+            tilLoginEmailOrPhone.setError("Định dạng Email hoặc SĐT không hợp lệ");
+            edtLoginEmailOrPhone.requestFocus();
         }
+    }
+
+    private void addTextWatcher(TextInputEditText editText, TextInputLayout inputLayout) {
+        editText.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                // Khi người dùng gõ, xóa lỗi và tắt luôn vùng hiển thị lỗi để thu hẹp khoảng cách
+                if (inputLayout.isErrorEnabled()) {
+                    inputLayout.setError(null);
+                    inputLayout.setErrorEnabled(false);
+                }
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {}
+        });
+    }
+
+    private void processSuccessfulLogin(String uid, SharedPreferences.Editor editor) {
+        dbRef.child("users").child(uid).child("status").setValue("online");
+        editor.putString("uid", uid);
+        editor.putBoolean("isRemembered", cbLoginRemember.isChecked());
+        editor.apply();
+
+        showMotionToast("Thành công", "Chào bạn đến với NexTalk!", MotionToastStyle.SUCCESS);
+        btnLogin.postDelayed(() -> {
+            startActivity(new Intent(this, MainActivity.class));
+            finish();
+        }, 1200);
+    }
+
+    private void showMotionToast(String title, String message, MotionToastStyle style) {
+        MotionToast.Companion.createColorToast(this, title, message, style,
+                MotionToast.GRAVITY_BOTTOM, MotionToast.LONG_DURATION, Typeface.SANS_SERIF);
+    }
+
+    private String hashPassword(String password) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] bytes = md.digest(password.getBytes());
+            StringBuilder sb = new StringBuilder();
+            for (byte b : bytes) sb.append(String.format("%02x", b));
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) { return password; }
     }
 }

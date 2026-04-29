@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:padding="8dp">
@@ -8,18 +9,31 @@
         android:id="@+id/show_message"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignParentStart="true" android:background="@drawable/bg_receiver_message"
+        android:layout_alignParentStart="true"
+        android:background="@drawable/bg_receiver_message"
         android:padding="12dp"
         android:text="Hi there!"
-        android:textColor="#000000" /> <TextView
-    android:id="@+id/txt_status"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:layout_below="@id/show_message"
-    android:layout_alignParentStart="true" android:layout_marginTop="2dp"
-    android:layout_marginStart="5dp"
-    android:text="09:41"
-    android:textSize="10sp"
-    android:visibility="gone" />
+        android:textColor="#000000" />
+
+    <com.google.android.material.imageview.ShapeableImageView
+        android:id="@+id/img_chat"
+        android:layout_width="200dp"
+        android:layout_height="250dp"
+        android:layout_alignParentStart="true"
+        android:scaleType="centerCrop"
+        android:visibility="gone"
+        app:shapeAppearanceOverlay="@style/RoundedImageView" />
+
+    <TextView
+        android:id="@+id/txt_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/show_message"
+        android:layout_alignParentStart="true"
+        android:layout_marginTop="2dp"
+        android:layout_marginStart="5dp"
+        android:text="09:41"
+        android:textSize="10sp"
+        android:visibility="gone" />
 
 </RelativeLayout>

@@ -3,9 +3,10 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/main"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="@color/white">
+    android:layout_height="wrap_content"
+    android:layout_marginHorizontal="10dp"
+    android:background="@drawable/bg_search_white"
+    android:orientation="vertical">
 
     <RelativeLayout
         android:layout_width="match_parent"
@@ -41,9 +42,9 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
             android:orientation="vertical"
-            android:padding="20dp"
-            android:gravity="center_horizontal">
+            android:padding="20dp">
 
             <RelativeLayout
                 android:layout_width="120dp"
@@ -55,6 +56,7 @@
                     android:layout_height="match_parent"
                     app:cardCornerRadius="60dp"
                     app:cardElevation="2dp">
+
                     <ImageView
                         android:id="@+id/imgAvatarProfile"
                         android:layout_width="match_parent"
@@ -69,11 +71,11 @@
                     android:layout_height="wrap_content"
                     android:layout_alignParentEnd="true"
                     android:layout_alignParentBottom="true"
+                    android:visibility="gone"
+                    app:backgroundTint="#5C8EE6"
                     app:fabCustomSize="36dp"
                     app:srcCompat="@android:drawable/ic_menu_camera"
-                    app:tint="@color/white"
-                    app:backgroundTint="#5C8EE6"
-                    android:visibility="gone"/>
+                    app:tint="@color/white" />
             </RelativeLayout>
 
             <!-- Họ và tên -->
@@ -81,23 +83,24 @@
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginBottom="15dp"
                 android:hint="Họ và tên"
                 android:textColorHint="#333333"
-                app:hintTextColor="#5C8EE6"
                 app:boxStrokeColor="#5C8EE6"
                 app:boxStrokeWidth="2dp"
                 app:boxStrokeWidthFocused="2dp"
+                app:hintTextColor="#5C8EE6"
                 app:startIconDrawable="@drawable/ic_account"
-                app:startIconTint="#5C8EE6"
-                android:layout_marginBottom="15dp">
+                app:startIconTint="#5C8EE6">
+
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/edtFullName"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:inputType="textPersonName"
                     android:textColor="#000000"
-                    android:textStyle="bold"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:textStyle="normal" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <!-- Số điện thoại -->
@@ -105,23 +108,24 @@
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginBottom="15dp"
                 android:hint="Số điện thoại"
                 android:textColorHint="#333333"
-                app:hintTextColor="#5C8EE6"
                 app:boxStrokeColor="#5C8EE6"
                 app:boxStrokeWidth="2dp"
                 app:boxStrokeWidthFocused="2dp"
+                app:hintTextColor="#5C8EE6"
                 app:startIconDrawable="@android:drawable/ic_menu_call"
-                app:startIconTint="#5C8EE6"
-                android:layout_marginBottom="15dp">
+                app:startIconTint="#5C8EE6">
+
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/edtPhone"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:inputType="phone"
                     android:textColor="#000000"
-                    android:textStyle="bold"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:textStyle="normal" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <!-- Tiểu sử -->
@@ -129,24 +133,30 @@
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginBottom="30dp"
                 android:hint="Tiểu sử"
                 android:textColorHint="#333333"
-                app:hintTextColor="#5C8EE6"
                 app:boxStrokeColor="#5C8EE6"
                 app:boxStrokeWidth="2dp"
                 app:boxStrokeWidthFocused="2dp"
+                app:hintTextColor="#5C8EE6"
                 app:startIconDrawable="@android:drawable/ic_menu_edit"
-                app:startIconTint="#5C8EE6"
-                android:layout_marginBottom="30dp">
+                app:startIconTint="#5C8EE6">
+
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/edtBio"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="top"
+                    android:fontFamily="sans-serif"
+                    android:textStyle="normal"
+                    android:gravity="top|start"
                     android:inputType="textMultiLine"
                     android:lines="3"
+                    android:overScrollMode="always"
+                    android:paddingTop="15dp"
+                    android:scrollbarStyle="insideInset"
+                    android:scrollbars="vertical"
                     android:textColor="#000000"
-                    android:textStyle="bold"
                     android:textSize="16sp" />
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -154,12 +164,12 @@
                 android:id="@+id/btnUpdateProfile"
                 android:layout_width="match_parent"
                 android:layout_height="55dp"
+                android:backgroundTint="#5C8EE6"
                 android:text="Chỉnh sửa thông tin"
                 android:textAllCaps="false"
                 android:textSize="16sp"
                 android:textStyle="bold"
-                app:cornerRadius="25dp"
-                android:backgroundTint="#5C8EE6"/>
+                app:cornerRadius="25dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnCancel"
@@ -169,10 +179,10 @@
                 android:layout_marginTop="10dp"
                 android:text="Hủy"
                 android:textAllCaps="false"
-                android:textSize="16sp"
-                app:cornerRadius="25dp"
                 android:textColor="#333333"
-                android:visibility="gone"/>
+                android:textSize="16sp"
+                android:visibility="gone"
+                app:cornerRadius="25dp" />
 
         </LinearLayout>
     </ScrollView>
