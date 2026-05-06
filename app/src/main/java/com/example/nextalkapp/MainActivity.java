@@ -1,5 +1,7 @@
 package com.example.nextalkapp;
 
+import android.content.IntentFilter;
+import android.net.ConnectivityManager;
 import android.os.Bundle;
 
 import androidx.activity.EdgeToEdge;
@@ -13,6 +15,7 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public class MainActivity extends AppCompatActivity {
     BottomNavigationView bottomNav;
+    private NetworkChangeReceiver networkChangeReceiver;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -24,8 +27,19 @@ public class MainActivity extends AppCompatActivity {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
+        
         mapping();
-        // Hiển thị màn hình Chat mặc định khi vừa vào app
+        
+        // Đăng ký Receiver động để bắt sự kiện mạng (Cần thiết cho Android 7.0+)
+        networkChangeReceiver = new NetworkChangeReceiver();
+        registerReceiver(networkChangeReceiver, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
+
+        // Kiểm tra và gửi tin nhắn chờ ngay khi vào app
+        if (NetworkUtil.isConnected(this)) {
+            NetworkChangeReceiver.syncMessages(this);
+        }
+
+        // Hiển thị màn hình Chat mặc định
         getSupportFragmentManager().beginTransaction().replace(R.id.fragment_container, new ChatFragment()).commit();
 
         bottomNav.setOnItemSelectedListener(item -> {
@@ -46,6 +60,14 @@ public class MainActivity extends AppCompatActivity {
             }
             return true;
         });
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (networkChangeReceiver != null) {
+            unregisterReceiver(networkChangeReceiver);
+        }
     }
 
     private void mapping() {

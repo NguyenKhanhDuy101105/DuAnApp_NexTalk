@@ -44,11 +44,19 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
 
         holder.txtName.setText(user.name);
 
-        // Hiển thị tin nhắn cuối cùng (nếu trống thì để mặc định)
+        // Hiển thị tin nhắn cuối cùng
         if (user.lastMessage != null && !user.lastMessage.isEmpty()) {
-            holder.txtLastMessage.setText(user.lastMessage);
+            // Kiểm tra nếu là tin nhắn đang chờ gửi (Offline)
+            if (user.lastMsgPending) {
+                holder.txtLastMessage.setText("Đang gửi: " + user.lastMessage);
+                holder.txtLastMessage.setAlpha(0.6f); // Làm mờ chữ một chút
+            } else {
+                holder.txtLastMessage.setText(user.lastMessage);
+                holder.txtLastMessage.setAlpha(1.0f);
+            }
         } else {
             holder.txtLastMessage.setText("Bắt đầu cuộc trò chuyện");
+            holder.txtLastMessage.setAlpha(1.0f);
         }
 
         // --- LOGIC HIỂN THỊ THỜI GIAN THÔNG MINH ---
@@ -56,19 +64,15 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
         long lastTime = user.lastTime;
         String formattedTime;
 
-        // Kiểm tra nếu tin nhắn cũ hơn 24 giờ (24 * 60 * 60 * 1000 miliseconds)
         if (currentTime - lastTime > 86400000) {
-            // Định dạng: Ngày/Tháng Giờ:Phút (Ví dụ: 25/04 15:30)
             SimpleDateFormat sdfDate = new SimpleDateFormat("dd/MM HH:mm", Locale.getDefault());
             formattedTime = sdfDate.format(new Date(lastTime));
         } else {
-            // Định dạng: Giờ:Phút 24h (Ví dụ: 15:30)
             SimpleDateFormat sdfTime = new SimpleDateFormat("HH:mm", Locale.getDefault());
             formattedTime = sdfTime.format(new Date(lastTime));
         }
 
         holder.txtTime.setText(formattedTime);
-        // ------------------------------------------
 
         // Hiển thị ảnh đại diện
         if (user.avatar != null && !user.avatar.isEmpty()) {
@@ -88,7 +92,6 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             holder.viewStatusChat.setVisibility(View.GONE);
         }
 
-        // Sự kiện click vào item
         holder.itemView.setOnClickListener(v -> {
             if (listener != null) {
                 listener.onItemClick(user);

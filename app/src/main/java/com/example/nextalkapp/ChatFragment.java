@@ -16,6 +16,7 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.nextalkapp.Model.OfflineMessage;
 import com.example.nextalkapp.Model.User;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -24,7 +25,9 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ChatFragment extends Fragment {
 
@@ -34,6 +37,7 @@ public class ChatFragment extends Fragment {
     private ActiveAdapter activeAdapter;
     private List<User> list, listFull, listActive;
     private DatabaseReference dbRef;
+    private OfflineDbHelper offlineDbHelper;
 
     public ChatFragment() {}
 
@@ -44,6 +48,8 @@ public class ChatFragment extends Fragment {
         rcvChats = view.findViewById(R.id.rcvChats);
         rcvActiveNow = view.findViewById(R.id.rcvActiveNow);
         searchBar = view.findViewById(R.id.search_bar);
+
+        offlineDbHelper = new OfflineDbHelper(getContext());
 
         list = new ArrayList<>();
         listFull = new ArrayList<>();
@@ -80,32 +86,57 @@ public class ChatFragment extends Fragment {
         dbRef.child("users").addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                // Sử dụng list tạm để tránh việc RecyclerView update liên tục gây lag
                 List<User> tempChatList = new ArrayList<>();
                 List<User> tempActiveList = new ArrayList<>();
+
+                // 1. Lấy danh sách tin nhắn pending từ SQLite để so sánh
+                List<OfflineMessage> pendingList = offlineDbHelper.getAllPendingMessages();
+                Map<String, OfflineMessage> latestPendingMap = new HashMap<>();
+                for (OfflineMessage om : pendingList) {
+                    // Chỉ lấy tin nhắn mới nhất cho mỗi người nhận
+                    if (!latestPendingMap.containsKey(om.getReceiver()) || 
+                        om.getTimestamp() > latestPendingMap.get(om.getReceiver()).getTimestamp()) {
+                        latestPendingMap.put(om.getReceiver(), om);
+                    }
+                }
 
                 for (DataSnapshot data : snapshot.getChildren()) {
                     String uid = data.getKey();
                     if (uid == null || uid.equals(currentUid)) continue;
 
-                    String lastMsg = data.child("lastMessage").getValue(String.class);
-                    // Nếu rỗng nghĩa là chưa có chat hoặc đã xóa hết sạch tin nhắn
-                    if (lastMsg == null || lastMsg.isEmpty()) continue;
-
                     String name = data.child("name").getValue(String.class);
                     String avatar = data.child("avatar").getValue(String.class);
                     String status = data.child("status").getValue(String.class);
+                    
+                    String lastMsg = data.child("lastMessage").getValue(String.class);
                     Long lastTime = data.child("lastTime").getValue(Long.class);
+                    if (lastTime == null) lastTime = 0L;
 
-                    User userObj = new User(uid, name, avatar, lastMsg, lastTime != null ? lastTime : 0, status);
+                    boolean isPending = false;
+
+                    // 2. Kiểm tra xem có tin nhắn offline nào mới hơn không
+                    if (latestPendingMap.containsKey(uid)) {
+                        OfflineMessage om = latestPendingMap.get(uid);
+                        if (om.getTimestamp() > lastTime) {
+                            lastMsg = om.getMessage();
+                            lastTime = om.getTimestamp();
+                            isPending = true;
+                        }
+                    }
+
+                    // Nếu hoàn toàn không có tin nhắn (cả Firebase lẫn Offline) thì không hiện ở Chat list
+                    if (lastMsg == null || lastMsg.isEmpty()) continue;
+
+                    User userObj = new User(uid, name, avatar, lastMsg, lastTime, status);
+                    userObj.setLastMsgPending(isPending);
 
                     if ("online".equals(status)) tempActiveList.add(userObj);
                     tempChatList.add(userObj);
                 }
 
+                // Sắp xếp theo thời gian mới nhất
                 tempChatList.sort((o1, o2) -> Long.compare(o2.lastTime, o1.lastTime));
 
-                // Cập nhật dữ liệu vào list chính
                 list.clear();
                 list.addAll(tempChatList);
                 listFull.clear();

@@ -76,8 +76,16 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.ViewHold
 
         SimpleDateFormat sdf = new SimpleDateFormat("HH:mm", Locale.getDefault());
         String time = sdf.format(new Date(chat.getTimestamp()));
+        
         if (chat.getSender().equals(fuser)) {
-            holder.txt_status.setText(chat.isIsseen() ? "Đã xem - " + time : "Đã gửi - " + time);
+            // Xử lý icon pending cho tin nhắn offline
+            if (chat.isPending()) {
+                if (holder.img_pending != null) holder.img_pending.setVisibility(View.VISIBLE);
+                holder.txt_status.setText("Đang chờ - " + time);
+            } else {
+                if (holder.img_pending != null) holder.img_pending.setVisibility(View.GONE);
+                holder.txt_status.setText(chat.isIsseen() ? "Đã xem - " + time : "Đã gửi - " + time);
+            }
         } else {
             holder.txt_status.setText(time);
         }
@@ -86,7 +94,9 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.ViewHold
                 holder.txt_status.getVisibility() == View.GONE ? View.VISIBLE : View.GONE));
 
         holder.itemView.setOnLongClickListener(v -> {
-            showDeleteDialog(chat);
+            if (!chat.isPending()) { // Chỉ cho phép xóa tin nhắn đã lên server
+                showDeleteDialog(chat);
+            }
             return true;
         });
     }
@@ -108,8 +118,6 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.ViewHold
         dialog.show();
     }
 
-    // Trong MessageAdapter.java
-
     private void deleteMessage(ChatModel chat) {
         String msgId = chat.getMessageId();
         if (msgId == null) return;
@@ -120,7 +128,6 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.ViewHold
                 .addOnSuccessListener(aVoid -> {
                     showMotionToast("Thành công", "Đã xóa tin nhắn", MotionToastStyle.SUCCESS);
 
-                    // Sau khi xóa, lấy tin nhắn cuối cùng còn lại trong node messages/chatRoomId
                     messageRef.orderByChild("timestamp").limitToLast(1)
                             .addListenerForSingleValueEvent(new ValueEventListener() {
                                 @Override
@@ -137,8 +144,6 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.ViewHold
                                             }
                                         }
                                     }
-
-                                    // Cập nhật lại cho cả 2 người
                                     updateFirebaseLastMessage(chat.getSender(), chat.getReceiver(), newLastMsg, newLastTime);
                                 }
 
@@ -175,12 +180,13 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.ViewHold
 
     public class ViewHolder extends RecyclerView.ViewHolder {
         public TextView show_message, txt_status;
-        public ImageView img_chat;
+        public ImageView img_chat, img_pending;
         public ViewHolder(View itemView) {
             super(itemView);
             show_message = itemView.findViewById(R.id.show_message);
             txt_status = itemView.findViewById(R.id.txt_status);
             img_chat = itemView.findViewById(R.id.img_chat);
+            img_pending = itemView.findViewById(R.id.img_pending); // Ánh xạ icon chờ
         }
     }
 

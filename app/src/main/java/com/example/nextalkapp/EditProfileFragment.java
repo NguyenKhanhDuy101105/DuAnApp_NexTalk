@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Base64;
@@ -21,7 +22,6 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.core.content.res.ResourcesCompat;
 import androidx.fragment.app.Fragment;
 
 import com.bumptech.glide.Glide;
@@ -146,6 +146,8 @@ public class EditProfileFragment extends Fragment {
 
     // --- LOGIC VALIDATION & CHECK TRÙNG ---
     private void validateAndSave() {
+        if (edtFullName.getText() == null || edtPhone.getText() == null || edtBio.getText() == null) return;
+
         String name = edtFullName.getText().toString().trim();
         String phone = edtPhone.getText().toString().trim();
         String bio = edtBio.getText().toString().trim();
@@ -173,7 +175,7 @@ public class EditProfileFragment extends Fragment {
                 boolean isTaken = false;
                 for (DataSnapshot ds : snapshot.getChildren()) {
                     // Nếu tìm thấy số điện thoại nhưng ID không phải của mình -> Bị trùng
-                    if (!ds.getKey().equals(currentUserId)) {
+                    if (ds.getKey() != null && !ds.getKey().equals(currentUserId)) {
                         isTaken = true;
                         break;
                     }
@@ -232,13 +234,15 @@ public class EditProfileFragment extends Fragment {
     }
 
     private void showMotionToast(String title, String message, MotionToastStyle style) {
-        MotionToast.Companion.createColorToast(getActivity(),
-                title,
-                message,
-                style,
-                MotionToast.GRAVITY_BOTTOM,
-                MotionToast.LONG_DURATION,
-                ResourcesCompat.getFont(getContext(), www.sanju.motiontoast.R.font.helvetica_regular));
+        if (getActivity() != null) {
+            MotionToast.Companion.createColorToast(getActivity(),
+                    title,
+                    message,
+                    style,
+                    MotionToast.GRAVITY_BOTTOM,
+                    MotionToast.LONG_DURATION,
+                    Typeface.SANS_SERIF);
+        }
     }
 
     private void cancelEditing() {
@@ -249,6 +253,7 @@ public class EditProfileFragment extends Fragment {
 
     private String convertUriToBase64(Uri uri) {
         try {
+            if (getContext() == null) return "";
             InputStream is = getContext().getContentResolver().openInputStream(uri);
             Bitmap bitmap = BitmapFactory.decodeStream(is);
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
