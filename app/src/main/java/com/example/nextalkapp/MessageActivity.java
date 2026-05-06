@@ -73,6 +73,14 @@ public class MessageActivity extends AppCompatActivity {
         SharedPreferences prefs = getSharedPreferences("USER", MODE_PRIVATE);
         senderUid = prefs.getString("uid", null);
 
+        if (senderUid != null) {
+            DatabaseReference myStatusRef = FirebaseDatabase.getInstance()
+                    .getReference("users").child(senderUid).child("status");
+
+            myStatusRef.setValue("online");
+            myStatusRef.onDisconnect().setValue("offline");
+        }
+
         dbRef = FirebaseDatabase.getInstance().getReference();
         chatRoomId = getChatRoomId(senderUid, receiverUid);
 
@@ -123,12 +131,21 @@ public class MessageActivity extends AppCompatActivity {
         showMotionToast("Đang tải", "Hình ảnh đang được gửi...", MotionToastStyle.INFO);
 
         String fileName = UUID.randomUUID().toString() + ".jpg";
+        // Đảm bảo chat_images đã được tạo trên Firebase Console
         StorageReference ref = FirebaseStorage.getInstance().getReference().child("chat_images/" + fileName);
 
-        ref.putFile(uri).addOnSuccessListener(taskSnapshot ->
-                ref.getDownloadUrl().addOnSuccessListener(downloadUri ->
-                        sendMessage(senderUid, receiverUid, downloadUri.toString(), "image"))
-        ).addOnFailureListener(e -> showMotionToast("Lỗi", "Không thể tải ảnh!", MotionToastStyle.ERROR));
+        ref.putFile(uri)
+                .addOnSuccessListener(taskSnapshot -> {
+                    // Lấy URL sau khi upload thành công
+                    taskSnapshot.getStorage().getDownloadUrl().addOnSuccessListener(downloadUri -> {
+                        sendMessage(senderUid, receiverUid, downloadUri.toString(), "image");
+                    });
+                })
+                .addOnFailureListener(e -> {
+                    // 🔥 Duy in log này ra để xem lỗi thực sự là gì (ví dụ: Permission Denied)
+                    android.util.Log.e("Firebase_Error", "Upload failed: " + e.getMessage());
+                    showMotionToast("Lỗi", "Không thể tải ảnh: " + e.getMessage(), MotionToastStyle.ERROR);
+                });
     }
 
     private void sendMessage(String sender, String receiver, String message, String type) {
@@ -146,12 +163,15 @@ public class MessageActivity extends AppCompatActivity {
 
         messageRef.setValue(hashMap);
 
+        // Dữ liệu tin nhắn cuối
         HashMap<String, Object> lastMsgMap = new HashMap<>();
         lastMsgMap.put("lastMessage", type.equals("image") ? "[Hình ảnh]" : message);
         lastMsgMap.put("lastTime", System.currentTimeMillis());
 
-        dbRef.child("users").child(sender).updateChildren(lastMsgMap);
-        dbRef.child("users").child(receiver).updateChildren(lastMsgMap);
+        // Cấu trúc mới: chats -> UID_CỦA_MÌNH -> UID_NGƯỜI_KIA -> {lastMessage, lastTime}
+        // Điều này đảm bảo tin nhắn cuối chỉ tồn tại trong mối quan hệ giữa 2 người này
+        dbRef.child("chats").child(sender).child(receiver).updateChildren(lastMsgMap);
+        dbRef.child("chats").child(receiver).child(sender).updateChildren(lastMsgMap);
     }
 
     private void showMotionToast(String title, String msg, MotionToastStyle style) {
