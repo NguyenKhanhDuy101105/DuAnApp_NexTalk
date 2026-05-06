@@ -77,46 +77,38 @@ public class ChatFragment extends Fragment {
         String currentUid = prefs.getString("uid", null);
         if (currentUid == null) return;
 
-        dbRef.child("users").addValueEventListener(new ValueEventListener() {
+        List<User> tempChatList = new ArrayList<>();
+
+        // Lắng nghe danh sách các cuộc hội thoại của CHÍNH người dùng hiện tại
+        dbRef.child("chats").child(currentUid).addValueEventListener(new ValueEventListener() {
             @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                // Sử dụng list tạm để tránh việc RecyclerView update liên tục gây lag
-                List<User> tempChatList = new ArrayList<>();
-                List<User> tempActiveList = new ArrayList<>();
-
-                for (DataSnapshot data : snapshot.getChildren()) {
-                    String uid = data.getKey();
-                    if (uid == null || uid.equals(currentUid)) continue;
-
+            public void onDataChange(@NonNull DataSnapshot chatSnapshot) {
+                // Duyệt qua từng người mà mình đã từng nhắn tin
+                for (DataSnapshot data : chatSnapshot.getChildren()) {
+                    String otherUid = data.getKey();
                     String lastMsg = data.child("lastMessage").getValue(String.class);
-                    // Nếu rỗng nghĩa là chưa có chat hoặc đã xóa hết sạch tin nhắn
-                    if (lastMsg == null || lastMsg.isEmpty()) continue;
-
-                    String name = data.child("name").getValue(String.class);
-                    String avatar = data.child("avatar").getValue(String.class);
-                    String status = data.child("status").getValue(String.class);
                     Long lastTime = data.child("lastTime").getValue(Long.class);
 
-                    User userObj = new User(uid, name, avatar, lastMsg, lastTime != null ? lastTime : 0, status);
+                    // Lấy thông tin chi tiết (tên, ảnh, trạng thái) từ node users
+                    dbRef.child("users").child(otherUid).addValueEventListener(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(@NonNull DataSnapshot userSnapshot) {
+                            if (userSnapshot.exists()) {
+                                String name = userSnapshot.child("name").getValue(String.class);
+                                String avatar = userSnapshot.child("avatar").getValue(String.class);
+                                String status = userSnapshot.child("status").getValue(String.class);
 
-                    if ("online".equals(status)) tempActiveList.add(userObj);
-                    tempChatList.add(userObj);
+                                User userObj = new User(otherUid, name, avatar, lastMsg,
+                                        lastTime != null ? lastTime : 0, status);
+
+                                // Gọi hàm thêm/cập nhật vào list
+                                addToTempList(userObj, tempChatList);
+                            }
+                        }
+                        @Override public void onCancelled(@NonNull DatabaseError error) {}
+                    });
                 }
-
-                tempChatList.sort((o1, o2) -> Long.compare(o2.lastTime, o1.lastTime));
-
-                // Cập nhật dữ liệu vào list chính
-                list.clear();
-                list.addAll(tempChatList);
-                listFull.clear();
-                listFull.addAll(tempChatList);
-                listActive.clear();
-                listActive.addAll(tempActiveList);
-
-                adapter.notifyDataSetChanged();
-                activeAdapter.notifyDataSetChanged();
             }
-
             @Override public void onCancelled(@NonNull DatabaseError error) {}
         });
     }
@@ -138,5 +130,48 @@ public class ChatFragment extends Fragment {
             if (item.name.toLowerCase().contains(text.toLowerCase())) list.add(item);
         }
         adapter.notifyDataSetChanged();
+    }
+
+    private void addToTempList(User user, List<User> tempList) {
+        int index = -1;
+        // Kiểm tra xem user này đã có trong danh sách tạm chưa
+        for (int i = 0; i < tempList.size(); i++) {
+            if (tempList.get(i).uid.equals(user.uid)) {
+                index = i;
+                break;
+            }
+        }
+
+        if (index != -1) {
+            // Nếu đã tồn tại, cập nhật lại thông tin (tin nhắn mới, thời gian mới)
+            tempList.set(index, user);
+        } else {
+            // Nếu chưa có, thêm mới vào list
+            tempList.add(user);
+        }
+
+        // Sắp xếp danh sách theo thời gian tin nhắn mới nhất lên đầu
+        tempList.sort((o1, o2) -> Long.compare(o2.lastTime, o1.lastTime));
+
+        // Cập nhật lên UI
+        list.clear();
+        list.addAll(tempList);
+        listFull.clear();
+        listFull.addAll(tempList);
+
+        // Cập nhật danh sách hoạt động (Active Now)
+        updateActiveList();
+
+        if (adapter != null) adapter.notifyDataSetChanged();
+    }
+
+    private void updateActiveList() {
+        listActive.clear();
+        for (User u : listFull) {
+            if ("online".equals(u.status)) {
+                listActive.add(u);
+            }
+        }
+        if (activeAdapter != null) activeAdapter.notifyDataSetChanged();
     }
 }
