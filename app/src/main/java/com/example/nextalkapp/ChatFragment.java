@@ -16,7 +16,6 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.example.nextalkapp.Model.OfflineMessage;
 import com.example.nextalkapp.Model.User;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -25,9 +24,7 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class ChatFragment extends Fragment {
 
@@ -37,7 +34,6 @@ public class ChatFragment extends Fragment {
     private ActiveAdapter activeAdapter;
     private List<User> list, listFull, listActive;
     private DatabaseReference dbRef;
-    private OfflineDbHelper offlineDbHelper;
 
     public ChatFragment() {}
 
@@ -48,8 +44,6 @@ public class ChatFragment extends Fragment {
         rcvChats = view.findViewById(R.id.rcvChats);
         rcvActiveNow = view.findViewById(R.id.rcvActiveNow);
         searchBar = view.findViewById(R.id.search_bar);
-
-        offlineDbHelper = new OfflineDbHelper(getContext());
 
         list = new ArrayList<>();
         listFull = new ArrayList<>();
@@ -83,73 +77,52 @@ public class ChatFragment extends Fragment {
         String currentUid = prefs.getString("uid", null);
         if (currentUid == null) return;
 
-        dbRef.child("users").addValueEventListener(new ValueEventListener() {
+        List<User> tempChatList = new ArrayList<>();
+
+        dbRef.child("chats").child(currentUid).addValueEventListener(new ValueEventListener() {
             @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                List<User> tempChatList = new ArrayList<>();
-                List<User> tempActiveList = new ArrayList<>();
-
-                // 1. Lấy danh sách tin nhắn pending từ SQLite để so sánh
-                List<OfflineMessage> pendingList = offlineDbHelper.getAllPendingMessages();
-                Map<String, OfflineMessage> latestPendingMap = new HashMap<>();
-                for (OfflineMessage om : pendingList) {
-                    // Chỉ lấy tin nhắn mới nhất cho mỗi người nhận
-                    if (!latestPendingMap.containsKey(om.getReceiver()) || 
-                        om.getTimestamp() > latestPendingMap.get(om.getReceiver()).getTimestamp()) {
-                        latestPendingMap.put(om.getReceiver(), om);
-                    }
-                }
-
-                for (DataSnapshot data : snapshot.getChildren()) {
-                    String uid = data.getKey();
-                    if (uid == null || uid.equals(currentUid)) continue;
-
-                    String name = data.child("name").getValue(String.class);
-                    String avatar = data.child("avatar").getValue(String.class);
-                    String status = data.child("status").getValue(String.class);
-                    
+            public void onDataChange(@NonNull DataSnapshot chatSnapshot) {
+                for (DataSnapshot data : chatSnapshot.getChildren()) {
+                    String otherUid = data.getKey();
                     String lastMsg = data.child("lastMessage").getValue(String.class);
                     Long lastTime = data.child("lastTime").getValue(Long.class);
-                    if (lastTime == null) lastTime = 0L;
+                    String chatRoomId = getChatRoomId(currentUid, otherUid);
 
-                    boolean isPending = false;
+                    // Lấy thông tin User và Biệt danh song song
+                    dbRef.child("users").child(otherUid).addValueEventListener(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(@NonNull DataSnapshot userSnapshot) {
+                            if (userSnapshot.exists()) {
+                                String name = userSnapshot.child("name").getValue(String.class);
+                                String avatar = userSnapshot.child("avatar").getValue(String.class);
+                                String status = userSnapshot.child("status").getValue(String.class);
 
-                    // 2. Kiểm tra xem có tin nhắn offline nào mới hơn không
-                    if (latestPendingMap.containsKey(uid)) {
-                        OfflineMessage om = latestPendingMap.get(uid);
-                        if (om.getTimestamp() > lastTime) {
-                            lastMsg = om.getMessage();
-                            lastTime = om.getTimestamp();
-                            isPending = true;
+                                // Lấy biệt danh từ node nicknames
+                                dbRef.child("nicknames").child(chatRoomId).child(otherUid).addValueEventListener(new ValueEventListener() {
+                                    @Override
+                                    public void onDataChange(@NonNull DataSnapshot nickSnapshot) {
+                                        String nickname = nickSnapshot.getValue(String.class);
+                                        String displayName = (nickname != null && !nickname.isEmpty()) ? nickname : name;
+
+                                        User userObj = new User(otherUid, displayName, avatar, lastMsg,
+                                                lastTime != null ? lastTime : 0, status);
+                                        
+                                        addToTempList(userObj, tempChatList);
+                                    }
+                                    @Override public void onCancelled(@NonNull DatabaseError error) {}
+                                });
+                            }
                         }
-                    }
-
-                    // Nếu hoàn toàn không có tin nhắn (cả Firebase lẫn Offline) thì không hiện ở Chat list
-                    if (lastMsg == null || lastMsg.isEmpty()) continue;
-
-                    User userObj = new User(uid, name, avatar, lastMsg, lastTime, status);
-                    userObj.setLastMsgPending(isPending);
-
-                    if ("online".equals(status)) tempActiveList.add(userObj);
-                    tempChatList.add(userObj);
+                        @Override public void onCancelled(@NonNull DatabaseError error) {}
+                    });
                 }
-
-                // Sắp xếp theo thời gian mới nhất
-                tempChatList.sort((o1, o2) -> Long.compare(o2.lastTime, o1.lastTime));
-
-                list.clear();
-                list.addAll(tempChatList);
-                listFull.clear();
-                listFull.addAll(tempChatList);
-                listActive.clear();
-                listActive.addAll(tempActiveList);
-
-                adapter.notifyDataSetChanged();
-                activeAdapter.notifyDataSetChanged();
             }
-
             @Override public void onCancelled(@NonNull DatabaseError error) {}
         });
+    }
+
+    private String getChatRoomId(String uid1, String uid2) {
+        return (uid1.compareTo(uid2) < 0) ? uid1 + "_" + uid2 : uid2 + "_" + uid1;
     }
 
     private void setupSearch() {
@@ -169,5 +142,41 @@ public class ChatFragment extends Fragment {
             if (item.name.toLowerCase().contains(text.toLowerCase())) list.add(item);
         }
         adapter.notifyDataSetChanged();
+    }
+
+    private void addToTempList(User user, List<User> tempList) {
+        int index = -1;
+        for (int i = 0; i < tempList.size(); i++) {
+            if (tempList.get(i).uid.equals(user.uid)) {
+                index = i;
+                break;
+            }
+        }
+
+        if (index != -1) {
+            tempList.set(index, user);
+        } else {
+            tempList.add(user);
+        }
+
+        tempList.sort((o1, o2) -> Long.compare(o2.lastTime, o1.lastTime));
+
+        list.clear();
+        list.addAll(tempList);
+        listFull.clear();
+        listFull.addAll(tempList);
+
+        updateActiveList();
+        if (adapter != null) adapter.notifyDataSetChanged();
+    }
+
+    private void updateActiveList() {
+        listActive.clear();
+        for (User u : listFull) {
+            if ("online".equals(u.status)) {
+                listActive.add(u);
+            }
+        }
+        if (activeAdapter != null) activeAdapter.notifyDataSetChanged();
     }
 }

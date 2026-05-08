@@ -1,5 +1,7 @@
 package com.example.nextalkapp;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -44,19 +46,18 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
 
         holder.txtName.setText(user.name);
 
-        // Hiển thị tin nhắn cuối cùng
-        if (user.lastMessage != null && !user.lastMessage.isEmpty()) {
-            // Kiểm tra nếu là tin nhắn đang chờ gửi (Offline)
-            if (user.lastMsgPending) {
-                holder.txtLastMessage.setText("Đang gửi: " + user.lastMessage);
-                holder.txtLastMessage.setAlpha(0.6f); // Làm mờ chữ một chút
-            } else {
-                holder.txtLastMessage.setText(user.lastMessage);
-                holder.txtLastMessage.setAlpha(1.0f);
+        // --- XỬ LÝ HIỂN THỊ "BẠN" TRONG TIN NHẮN CUỐI ---
+        SharedPreferences prefs = holder.itemView.getContext().getSharedPreferences("USER", Context.MODE_PRIVATE);
+        String myName = prefs.getString("name", "");
+        String lastMsg = user.lastMessage;
+
+        if (lastMsg != null && !lastMsg.isEmpty()) {
+            if (!myName.isEmpty() && lastMsg.startsWith(myName)) {
+                lastMsg = lastMsg.replaceFirst(myName, "Bạn");
             }
+            holder.txtLastMessage.setText(lastMsg);
         } else {
             holder.txtLastMessage.setText("Bắt đầu cuộc trò chuyện");
-            holder.txtLastMessage.setAlpha(1.0f);
         }
 
         // --- LOGIC HIỂN THỊ THỜI GIAN THÔNG MINH ---
@@ -71,10 +72,9 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             SimpleDateFormat sdfTime = new SimpleDateFormat("HH:mm", Locale.getDefault());
             formattedTime = sdfTime.format(new Date(lastTime));
         }
-
         holder.txtTime.setText(formattedTime);
 
-        // Hiển thị ảnh đại diện
+        // --- AVATAR & STATUS ---
         if (user.avatar != null && !user.avatar.isEmpty()) {
             Glide.with(holder.itemView.getContext())
                     .load(user.avatar)
@@ -85,7 +85,6 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             holder.imgAvatar.setImageResource(R.drawable.logo2);
         }
 
-        // Hiển thị chấm trạng thái Online/Offline
         if ("online".equals(user.status)) {
             holder.viewStatusChat.setVisibility(View.VISIBLE);
         } else {

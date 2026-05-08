@@ -6,7 +6,6 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Base64;
@@ -22,6 +21,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.res.ResourcesCompat;
 import androidx.fragment.app.Fragment;
 
 import com.bumptech.glide.Glide;
@@ -144,10 +144,7 @@ public class EditProfileFragment extends Fragment {
         }
     }
 
-    // --- LOGIC VALIDATION & CHECK TRÙNG ---
     private void validateAndSave() {
-        if (edtFullName.getText() == null || edtPhone.getText() == null || edtBio.getText() == null) return;
-
         String name = edtFullName.getText().toString().trim();
         String phone = edtPhone.getText().toString().trim();
         String bio = edtBio.getText().toString().trim();
@@ -157,7 +154,6 @@ public class EditProfileFragment extends Fragment {
             return;
         }
 
-        // Validate định dạng số điện thoại Việt Nam
         if (!phone.matches("^0[0-9]{9}$")) {
             showMotionToast("Lỗi", "Số điện thoại phải có 10 số và bắt đầu bằng 0", MotionToastStyle.ERROR);
             return;
@@ -165,7 +161,6 @@ public class EditProfileFragment extends Fragment {
 
         progressDialog.show();
 
-        // Kiểm tra trùng số điện thoại trên toàn hệ thống
         DatabaseReference usersRef = FirebaseDatabase.getInstance().getReference("users");
         Query query = usersRef.orderByChild("phone").equalTo(phone);
 
@@ -174,8 +169,7 @@ public class EditProfileFragment extends Fragment {
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 boolean isTaken = false;
                 for (DataSnapshot ds : snapshot.getChildren()) {
-                    // Nếu tìm thấy số điện thoại nhưng ID không phải của mình -> Bị trùng
-                    if (ds.getKey() != null && !ds.getKey().equals(currentUserId)) {
+                    if (!ds.getKey().equals(currentUserId)) {
                         isTaken = true;
                         break;
                     }
@@ -215,34 +209,49 @@ public class EditProfileFragment extends Fragment {
     }
 
     private void updateDatabase(String name, String phone, String bio, String avatarUrl) {
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("name", name);
-        updates.put("phone", phone);
-        updates.put("bio", bio);
-        updates.put("avatar", avatarUrl);
+        String oldPhone = currentUser != null ? currentUser.getPhone() : null;
 
-        dbRef.updateChildren(updates).addOnCompleteListener(task -> {
-            progressDialog.dismiss();
-            if (task.isSuccessful()) {
-                showMotionToast("Thành công", "Cập nhật hồ sơ hoàn tất", MotionToastStyle.SUCCESS);
-                setFieldsEnabled(false);
-                loadUserData(); // Reload dữ liệu mới
-            } else {
-                showMotionToast("Thất bại", "Không thể lưu dữ liệu", MotionToastStyle.ERROR);
-            }
-        });
+        Map<String, Object> childUpdates = new HashMap<>();
+        childUpdates.put("/users/" + currentUserId + "/name", name);
+        childUpdates.put("/users/" + currentUserId + "/phone", phone);
+        childUpdates.put("/users/" + currentUserId + "/bio", bio);
+        childUpdates.put("/users/" + currentUserId + "/avatar", avatarUrl);
+
+        if (oldPhone != null && !oldPhone.equals(phone)) {
+            childUpdates.put("/phones/" + oldPhone, null);
+            childUpdates.put("/phones/" + phone, currentUserId);
+        } else if (oldPhone == null) {
+            childUpdates.put("/phones/" + phone, currentUserId);
+        }
+
+        FirebaseDatabase.getInstance().getReference().updateChildren(childUpdates)
+                .addOnCompleteListener(task -> {
+                    progressDialog.dismiss();
+                    if (task.isSuccessful()) {
+                        // Cập nhật SharedPreferences
+                        if (getContext() != null) {
+                            SharedPreferences.Editor editor = getContext().getSharedPreferences("USER", Context.MODE_PRIVATE).edit();
+                            editor.putString("name", name);
+                            editor.apply();
+                        }
+                        
+                        showMotionToast("Thành công", "Cập nhật hồ sơ hoàn tất", MotionToastStyle.SUCCESS);
+                        setFieldsEnabled(false);
+                        loadUserData();
+                    } else {
+                        showMotionToast("Thất bại", "Không thể đồng bộ dữ liệu", MotionToastStyle.ERROR);
+                    }
+                });
     }
 
     private void showMotionToast(String title, String message, MotionToastStyle style) {
-        if (getActivity() != null) {
-            MotionToast.Companion.createColorToast(getActivity(),
-                    title,
-                    message,
-                    style,
-                    MotionToast.GRAVITY_BOTTOM,
-                    MotionToast.LONG_DURATION,
-                    Typeface.SANS_SERIF);
-        }
+        MotionToast.Companion.createColorToast(getActivity(),
+                title,
+                message,
+                style,
+                MotionToast.GRAVITY_BOTTOM,
+                MotionToast.LONG_DURATION,
+                ResourcesCompat.getFont(getContext(), www.sanju.motiontoast.R.font.helvetica_regular));
     }
 
     private void cancelEditing() {
@@ -253,7 +262,6 @@ public class EditProfileFragment extends Fragment {
 
     private String convertUriToBase64(Uri uri) {
         try {
-            if (getContext() == null) return "";
             InputStream is = getContext().getContentResolver().openInputStream(uri);
             Bitmap bitmap = BitmapFactory.decodeStream(is);
             ByteArrayOutputStream baos = new ByteArrayOutputStream();

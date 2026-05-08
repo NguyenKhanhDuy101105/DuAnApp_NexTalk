@@ -9,10 +9,9 @@ public class User {
     public String lastMessage;
     public long lastTime;
     public String status;
-    public boolean lastMsgPending; // Thêm trường này
+    public String nickname; // Thêm trường này
 
     public User() {
-        // Firebase cần constructor rỗng
     }
 
     public User(String uid, String name, String phone, String bio, String avatar, String lastMessage, long lastTime, String status) {
@@ -35,7 +34,6 @@ public class User {
         this.status = status;
     }
 
-    // Getters and Setters
     public String getUid() { return uid; }
     public void setUid(String uid) { this.uid = uid; }
     public String getName() { return name; }
@@ -52,6 +50,6 @@ public class User {
     public void setLastTime(long lastTime) { this.lastTime = lastTime; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
-    public boolean isLastMsgPending() { return lastMsgPending; }
-    public void setLastMsgPending(boolean lastMsgPending) { this.lastMsgPending = lastMsgPending; }
+    public String getNickname() { return nickname; }
+    public void setNickname(String nickname) { this.nickname = nickname; }
 }

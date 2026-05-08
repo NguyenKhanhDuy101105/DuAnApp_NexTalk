@@ -3,26 +3,28 @@ package com.example.nextalkapp;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.cardview.widget.CardView;
 import androidx.core.content.res.ResourcesCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.example.nextalkapp.Model.ChatModel;
-import com.example.nextalkapp.Model.OfflineMessage;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -33,9 +35,7 @@ import com.google.firebase.storage.StorageReference;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 import www.sanju.motiontoast.MotionToast;
@@ -44,18 +44,21 @@ import www.sanju.motiontoast.MotionToastStyle;
 public class MessageActivity extends AppCompatActivity {
 
     private ImageButton btnBack, btnSend, btnImage;
+    private TextView btnReaction;
     private ImageView imgReceiverAvatar;
     private TextView tvReceiverName, tvStatusText;
-    private View viewStatus;
+    private View viewStatus, layoutReceiverInfo;
+    private CardView cvAvatar;
     private EditText edtMessage;
     private RecyclerView rcvMessages;
 
     private String receiverUid, receiverName, receiverAvatar, senderUid, chatRoomId;
+    private String themeColor = "#5C8EE6"; // Màu chủ đề mặc định
+    private String quickReaction = "👍"; // Cảm xúc mặc định
     private DatabaseReference dbRef;
     private MessageAdapter messageAdapter;
     private List<ChatModel> mChat;
-    private ValueEventListener seenListener;
-    private OfflineDbHelper offlineDbHelper;
+    ValueEventListener seenListener;
 
     private final ActivityResultLauncher<Intent> pickImageLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
@@ -78,25 +81,56 @@ public class MessageActivity extends AppCompatActivity {
         SharedPreferences prefs = getSharedPreferences("USER", MODE_PRIVATE);
         senderUid = prefs.getString("uid", null);
 
+        if (senderUid != null) {
+            DatabaseReference myStatusRef = FirebaseDatabase.getInstance()
+                    .getReference("users").child(senderUid).child("status");
+
+            myStatusRef.setValue("online");
+            myStatusRef.onDisconnect().setValue("offline");
+        }
+
         dbRef = FirebaseDatabase.getInstance().getReference();
         chatRoomId = getChatRoomId(senderUid, receiverUid);
-        offlineDbHelper = new OfflineDbHelper(this);
 
         mapping();
         displayReceiverInfo();
         readMessages();
         seenMessage(receiverUid);
+        listenForNickname();
+        listenForTheme(); // Lắng nghe chủ đề màu sắc
+        listenForReaction(); // Lắng nghe biểu tượng cảm xúc nhanh
 
         btnBack.setOnClickListener(v -> finish());
-
+        
         btnSend.setOnClickListener(v -> {
             String msg = edtMessage.getText().toString().trim();
             if (!msg.isEmpty()) {
-                handleSendMessage(msg, "text");
+                sendMessage(senderUid, receiverUid, msg, "text");
                 edtMessage.setText("");
-            } else {
-                showMotionToast("Cảnh báo", "Vui lòng nhập tin nhắn!", MotionToastStyle.WARNING);
             }
+        });
+
+        btnReaction.setOnClickListener(v -> {
+            sendMessage(senderUid, receiverUid, quickReaction, "text");
+        });
+
+        edtMessage.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (s.toString().trim().length() > 0) {
+                    btnSend.setVisibility(View.VISIBLE);
+                    btnReaction.setVisibility(View.GONE);
+                } else {
+                    btnSend.setVisibility(View.GONE);
+                    btnReaction.setVisibility(View.VISIBLE);
+                }
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {}
         });
 
         btnImage.setOnClickListener(v -> {
@@ -105,6 +139,9 @@ public class MessageActivity extends AppCompatActivity {
             pickImageLauncher.launch(intent);
         });
 
+        cvAvatar.setOnClickListener(v -> openReceiverProfile());
+        layoutReceiverInfo.setOnClickListener(v -> openReceiverProfile());
+
         checkReceiverStatus();
     }
 
@@ -112,10 +149,13 @@ public class MessageActivity extends AppCompatActivity {
         btnBack = findViewById(R.id.btnBackChat);
         btnSend = findViewById(R.id.btnSend);
         btnImage = findViewById(R.id.btnImage);
+        btnReaction = findViewById(R.id.btnReaction);
         imgReceiverAvatar = findViewById(R.id.imgReceiverAvatar);
         tvReceiverName = findViewById(R.id.tvReceiverName);
         tvStatusText = findViewById(R.id.tvStatusText);
         viewStatus = findViewById(R.id.viewStatus);
+        layoutReceiverInfo = findViewById(R.id.layoutReceiverInfo);
+        cvAvatar = findViewById(R.id.cvAvatar);
         edtMessage = findViewById(R.id.edtMessage);
         rcvMessages = findViewById(R.id.rcvMessages);
 
@@ -125,27 +165,92 @@ public class MessageActivity extends AppCompatActivity {
         rcvMessages.setLayoutManager(linearLayoutManager);
     }
 
-    private void handleSendMessage(String message, String type) {
-        String messageId = dbRef.child("messages").child(chatRoomId).push().getKey();
-        long timestamp = System.currentTimeMillis();
+    private void openReceiverProfile() {
+        Intent intent = new Intent(MessageActivity.this, ReceiverProfileActivity.class);
+        intent.putExtra("receiverUid", receiverUid);
+        intent.putExtra("receiverName", receiverName);
+        intent.putExtra("receiverAvatar", receiverAvatar);
+        startActivity(intent);
+    }
 
-        if (NetworkUtil.isConnected(this)) {
-            // CÓ MẠNG: Gửi thẳng Firebase
-            sendMessageToFirebase(messageId, senderUid, receiverUid, message, type, timestamp);
-        } else {
-            // MẤT MẠNG: Lưu SQLite
-            OfflineMessage offlineMsg = new OfflineMessage(messageId, senderUid, receiverUid, message, type, timestamp, chatRoomId);
-            offlineDbHelper.addMessage(offlineMsg);
-            
-            Toast.makeText(this, "Đang chờ kết nối để gửi tin nhắn...", Toast.LENGTH_SHORT).show();
-            
-            // Cập nhật giao diện tạm thời
-            readMessages(); 
+    private void listenForNickname() {
+        dbRef.child("nicknames").child(chatRoomId).child(receiverUid).addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                String nickname = snapshot.getValue(String.class);
+                if (nickname != null && !nickname.isEmpty()) {
+                    tvReceiverName.setText(nickname);
+                } else {
+                    tvReceiverName.setText(receiverName != null ? receiverName : "Người dùng");
+                }
+            }
+            @Override public void onCancelled(@NonNull DatabaseError error) {}
+        });
+    }
+
+    private void listenForTheme() {
+        dbRef.child("themes").child(chatRoomId).child("color").addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                String color = snapshot.getValue(String.class);
+                if (color != null) {
+                    themeColor = color;
+                    applyTheme(color);
+                }
+            }
+            @Override public void onCancelled(@NonNull DatabaseError error) {}
+        });
+    }
+    
+    private void listenForReaction() {
+        dbRef.child("themes").child(chatRoomId).child("reaction").addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                String reaction = snapshot.getValue(String.class);
+                if (reaction != null) {
+                    quickReaction = reaction;
+                    btnReaction.setText(reaction);
+                } else {
+                    quickReaction = "👍";
+                    btnReaction.setText("👍");
+                }
+            }
+            @Override public void onCancelled(@NonNull DatabaseError error) {}
+        });
+    }
+
+    private void applyTheme(String colorCode) {
+        int color = Color.parseColor(colorCode);
+        btnSend.setColorFilter(color);
+        btnImage.setColorFilter(color);
+        if (messageAdapter != null) {
+            messageAdapter.setThemeColor(colorCode);
+            messageAdapter.notifyDataSetChanged();
         }
     }
 
-    private void sendMessageToFirebase(String messageId, String sender, String receiver, String message, String type, long timestamp) {
-        DatabaseReference messageRef = dbRef.child("messages").child(chatRoomId).child(messageId);
+    private void uploadImage(Uri uri) {
+        if (uri == null) return;
+        showMotionToast("Đang tải", "Hình ảnh đang được gửi...", MotionToastStyle.INFO);
+
+        String fileName = UUID.randomUUID().toString() + ".jpg";
+        StorageReference ref = FirebaseStorage.getInstance().getReference().child("chat_images/" + fileName);
+
+        ref.putFile(uri)
+                .addOnSuccessListener(taskSnapshot -> {
+                    taskSnapshot.getStorage().getDownloadUrl().addOnSuccessListener(downloadUri -> {
+                        sendMessage(senderUid, receiverUid, downloadUri.toString(), "image");
+                    });
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("Firebase_Error", "Upload failed: " + e.getMessage());
+                    showMotionToast("Lỗi", "Không thể tải ảnh: " + e.getMessage(), MotionToastStyle.ERROR);
+                });
+    }
+
+    private void sendMessage(String sender, String receiver, String message, String type) {
+        DatabaseReference messageRef = dbRef.child("messages").child(chatRoomId).push();
+        String messageId = messageRef.getKey();
 
         HashMap<String, Object> hashMap = new HashMap<>();
         hashMap.put("messageId", messageId);
@@ -153,18 +258,23 @@ public class MessageActivity extends AppCompatActivity {
         hashMap.put("receiver", receiver);
         hashMap.put("message", message);
         hashMap.put("type", type);
-        hashMap.put("timestamp", timestamp);
+        hashMap.put("timestamp", System.currentTimeMillis());
         hashMap.put("isseen", false);
 
         messageRef.setValue(hashMap);
 
-        // Cập nhật Last Message
         HashMap<String, Object> lastMsgMap = new HashMap<>();
         lastMsgMap.put("lastMessage", type.equals("image") ? "[Hình ảnh]" : message);
-        lastMsgMap.put("lastTime", timestamp);
+        lastMsgMap.put("lastTime", System.currentTimeMillis());
 
-        dbRef.child("users").child(sender).updateChildren(lastMsgMap);
-        dbRef.child("users").child(receiver).updateChildren(lastMsgMap);
+        dbRef.child("chats").child(sender).child(receiver).updateChildren(lastMsgMap);
+        dbRef.child("chats").child(receiver).child(sender).updateChildren(lastMsgMap);
+    }
+
+    private void showMotionToast(String title, String msg, MotionToastStyle style) {
+        MotionToast.Companion.createColorToast(this, title, msg,
+                style, MotionToast.GRAVITY_BOTTOM, MotionToast.LONG_DURATION,
+                ResourcesCompat.getFont(this, www.sanju.motiontoast.R.font.helvetica_regular));
     }
 
     private void readMessages() {
@@ -172,70 +282,17 @@ public class MessageActivity extends AppCompatActivity {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 mChat = new ArrayList<>();
-                Set<String> firebaseIds = new HashSet<>();
-                
-                // 1. Lấy tin nhắn từ Firebase
                 for (DataSnapshot data : snapshot.getChildren()) {
                     ChatModel chat = data.getValue(ChatModel.class);
-                    if (chat != null) {
-                        chat.setPending(false);
-                        mChat.add(chat);
-                        if (chat.getMessageId() != null) {
-                            firebaseIds.add(chat.getMessageId());
-                        }
-                    }
+                    if (chat != null) mChat.add(chat);
                 }
-
-                // 2. Lấy thêm tin nhắn đang chờ từ SQLite (chỉ cho phòng này)
-                List<OfflineMessage> pendingMsgs = offlineDbHelper.getAllPendingMessages();
-                for (OfflineMessage offline : pendingMsgs) {
-                    if (offline.getChatRoomId().equals(chatRoomId)) {
-                        // Kiểm tra nếu tin nhắn này đã có trên Firebase thì bỏ qua (tránh bị lặp khi đang đồng bộ)
-                        if (offline.getMessageId() != null && firebaseIds.contains(offline.getMessageId())) {
-                            continue;
-                        }
-
-                        ChatModel chat = new ChatModel(
-                                offline.getMessageId(),
-                                offline.getSender(),
-                                offline.getReceiver(),
-                                offline.getMessage(),
-                                offline.getType(),
-                                offline.getTimestamp(),
-                                false
-                        );
-                        chat.setPending(true); // Đánh dấu là đang chờ gửi
-                        mChat.add(chat);
-                    }
-                }
-
-                // Sắp xếp theo thời gian
-                mChat.sort((o1, o2) -> Long.compare(o1.getTimestamp(), o2.getTimestamp()));
-
                 messageAdapter = new MessageAdapter(MessageActivity.this, mChat, chatRoomId);
+                messageAdapter.setThemeColor(themeColor);
                 rcvMessages.setAdapter(messageAdapter);
                 if (mChat.size() > 0) rcvMessages.scrollToPosition(mChat.size() - 1);
             }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {}
+            @Override public void onCancelled(@NonNull DatabaseError error) {}
         });
-    }
-
-    private void uploadImage(Uri uri) {
-        if (!NetworkUtil.isConnected(this)) {
-            showMotionToast("Lỗi", "Cần có mạng để gửi hình ảnh!", MotionToastStyle.ERROR);
-            return;
-        }
-
-        showMotionToast("Đang tải", "Hình ảnh đang được gửi...", MotionToastStyle.INFO);
-        String fileName = UUID.randomUUID().toString() + ".jpg";
-        StorageReference ref = FirebaseStorage.getInstance().getReference().child("chat_images/" + fileName);
-
-        ref.putFile(uri).addOnSuccessListener(taskSnapshot ->
-                ref.getDownloadUrl().addOnSuccessListener(downloadUri ->
-                        handleSendMessage(downloadUri.toString(), "image"))
-        ).addOnFailureListener(e -> showMotionToast("Lỗi", "Không thể tải ảnh!", MotionToastStyle.ERROR));
     }
 
     private String getChatRoomId(String uid1, String uid2) {
@@ -286,11 +343,5 @@ public class MessageActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         if (seenListener != null) dbRef.child("messages").child(chatRoomId).removeEventListener(seenListener);
-    }
-
-    private void showMotionToast(String title, String msg, MotionToastStyle style) {
-        MotionToast.Companion.createColorToast(this, title, msg,
-                style, MotionToast.GRAVITY_BOTTOM, MotionToast.LONG_DURATION,
-                ResourcesCompat.getFont(this, www.sanju.motiontoast.R.font.helvetica_regular));
     }
 }

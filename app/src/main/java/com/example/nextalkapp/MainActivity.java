@@ -10,10 +10,15 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import android.content.SharedPreferences;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public class MainActivity extends AppCompatActivity {
+    // Trong lớp MainActivity
+    private DatabaseReference statusRef;
     BottomNavigationView bottomNav;
     private NetworkChangeReceiver networkChangeReceiver;
 
@@ -60,6 +65,19 @@ public class MainActivity extends AppCompatActivity {
             }
             return true;
         });
+
+        SharedPreferences prefs = getSharedPreferences("USER", MODE_PRIVATE);
+        String uid = prefs.getString("uid", null);
+
+        if (uid != null) {
+            statusRef = FirebaseDatabase.getInstance().getReference("users").child(uid).child("status");
+
+            // 1. Khi app đang mở, set online
+            statusRef.setValue("online");
+
+            // 2. Thiết lập: Khi mất kết nối (tắt app), Firebase Server tự động set offline
+            statusRef.onDisconnect().setValue("offline");
+        }
     }
 
     @Override

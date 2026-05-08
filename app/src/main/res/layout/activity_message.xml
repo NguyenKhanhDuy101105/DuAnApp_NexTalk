@@ -3,7 +3,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F5F7FB">
+    android:background="#F5F7FB"
+    android:fitsSystemWindows="true">
 
     <RelativeLayout
         android:id="@+id/layoutHeader"
@@ -32,7 +33,10 @@
             android:layout_marginStart="5dp"
             android:layout_toEndOf="@id/btnBackChat"
             app:cardCornerRadius="22.5dp"
-            app:cardElevation="0dp">
+            app:cardElevation="0dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground">
 
             <ImageView
                 android:id="@+id/imgReceiverAvatar"
@@ -43,12 +47,17 @@
         </androidx.cardview.widget.CardView>
 
         <LinearLayout
+            android:id="@+id/layoutReceiverInfo"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_centerVertical="true"
             android:layout_marginStart="12dp"
             android:layout_toEndOf="@id/cvAvatar"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackground"
+            android:padding="4dp">
 
             <TextView
                 android:id="@+id/tvReceiverName"
@@ -122,14 +131,32 @@
             android:padding="12dp"
             android:textSize="16sp" />
 
-        <ImageButton
-            android:id="@+id/btnSend"
-            android:layout_width="45dp"
-            android:layout_height="45dp"
-            android:layout_marginStart="10dp"
-            android:background="@android:drawable/ic_menu_send"
-            android:src="@android:drawable/ic_menu_send"
-            app:tint="#5C8EE6" />
+        <FrameLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp">
+
+            <ImageButton
+                android:id="@+id/btnSend"
+                android:layout_width="45dp"
+                android:layout_height="45dp"
+                android:background="@android:drawable/ic_menu_send"
+                android:src="@android:drawable/ic_menu_send"
+                android:visibility="gone"
+                app:tint="#5C8EE6" />
+
+            <TextView
+                android:id="@+id/btnReaction"
+                android:layout_width="45dp"
+                android:layout_height="45dp"
+                android:gravity="center"
+                android:text="👍"
+                android:textSize="28sp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+        </FrameLayout>
+
     </LinearLayout>
 
 </RelativeLayout>
