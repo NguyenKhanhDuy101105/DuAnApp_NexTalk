@@ -28,6 +28,7 @@
                 android:textSize="22sp"
                 android:textStyle="bold" />
 
+            <!-- Quản lý hồ sơ -->
             <LinearLayout
                 android:id="@+id/itemAccount"
                 android:layout_width="match_parent"
@@ -45,7 +46,6 @@
                     app:tint="#666666" />
 
                 <TextView
-                    android:id="@+id/tvQuanLy"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="15dp"
@@ -61,6 +61,7 @@
                 android:background="#EEEEEE"
                 android:layout_marginStart="40dp"/>
 
+            <!-- Đổi mật khẩu -->
             <LinearLayout
                 android:id="@+id/itemPrivacy"
                 android:layout_width="match_parent"
@@ -87,7 +88,13 @@
                     android:textSize="16sp" />
             </LinearLayout>
 
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#EEEEEE"
+                android:layout_marginStart="40dp"/>
 
+            <!-- Xóa tài khoản -->
             <LinearLayout
                 android:id="@+id/itemDeleteAccount"
                 android:layout_width="match_parent"
@@ -120,7 +127,7 @@
                 android:background="#EEEEEE"
                 android:layout_marginStart="40dp"/>
 
-
+            <!-- Chế độ tối -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="60dp"
@@ -130,36 +137,6 @@
                 <ImageView
                     android:layout_width="24dp"
                     android:layout_height="24dp"
-                    android:rotation="140"
-                    android:src="@drawable/notification"
-                    android:rotationX="180"
-                    app:tint="#666666" />
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="15dp"
-                    android:layout_weight="1"
-                    android:text="Bật thông báo"
-                    android:textColor="#333333"
-                    android:textSize="16sp" />
-
-                <androidx.appcompat.widget.SwitchCompat
-                    android:id="@+id/reciveNotification"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="60dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:rotation="140"
                     android:src="@drawable/ic_bright"
                     app:tint="#666666" />
 
@@ -178,6 +155,7 @@
                     android:layout_height="wrap_content" />
             </LinearLayout>
 
+            <!-- Đăng xuất -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnLogout"
                 style="@style/Widget.MaterialComponents.Button.TextButton"
