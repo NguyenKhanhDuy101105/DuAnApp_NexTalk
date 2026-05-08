@@ -26,7 +26,7 @@ import www.sanju.motiontoast.MotionToastStyle;
 public class SettingFragment extends Fragment {
 
     private MaterialButton btnLogout;
-    private LinearLayout itemAccount, itemPrivacy;
+    private LinearLayout itemAccount, itemPrivacy, itemDeleteAccount;
     private androidx.appcompat.widget.SwitchCompat switchDarkMode;
     private DatabaseReference dbRef;
 
@@ -47,6 +47,7 @@ public class SettingFragment extends Fragment {
         btnLogout = view.findViewById(R.id.btnLogout);
         itemAccount = view.findViewById(R.id.itemAccount);
         itemPrivacy = view.findViewById(R.id.itemPrivacy);
+        itemDeleteAccount = view.findViewById(R.id.itemDeleteAccount);
         switchDarkMode = view.findViewById(R.id.switchDarkMode);
     }
 
@@ -72,6 +73,19 @@ public class SettingFragment extends Fragment {
                     .addToBackStack(null)
                     .commit();
         });
+
+        // Chuyển sang màn hình Xóa tài khoản
+        if (itemDeleteAccount != null) {
+            itemDeleteAccount.setOnClickListener(v -> {
+                DeleteAccountFragment deleteAccountFragment = new DeleteAccountFragment();
+                getParentFragmentManager().beginTransaction()
+                        .setCustomAnimations(android.R.anim.fade_in, android.R.anim.fade_out,
+                                android.R.anim.fade_in, android.R.anim.fade_out)
+                        .replace(R.id.fragment_container, deleteAccountFragment)
+                        .addToBackStack(null)
+                        .commit();
+            });
+        }
 
         // Sự kiện Đăng xuất
         btnLogout.setOnClickListener(v -> showLogoutDialog());
@@ -109,16 +123,13 @@ public class SettingFragment extends Fragment {
         SharedPreferences prefs = getContext().getSharedPreferences("USER", getContext().MODE_PRIVATE);
         String uid = prefs.getString("uid", null);
 
-        // Cập nhật trạng thái offline trước khi xóa dữ liệu local
         if (uid != null) {
             dbRef.child("users").child(uid).child("status").setValue("offline");
         }
 
         prefs.edit().clear().apply();
-
         showMotionToast("Đăng xuất", "Hẹn gặp lại bạn tại NexTalk!", MotionToastStyle.SUCCESS);
 
-        // Delay một chút để hiệu ứng Toast hiện lên trước khi chuyển màn hình
         btnLogout.postDelayed(() -> {
             Intent intent = new Intent(getActivity(), ManHinhDangNhap.class);
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -126,7 +137,6 @@ public class SettingFragment extends Fragment {
         }, 1000);
     }
 
-    // Hàm gọi MotionToast dùng chung trong Fragment
     private void showMotionToast(String title, String message, MotionToastStyle style) {
         if (getActivity() != null) {
             MotionToast.Companion.createColorToast(getActivity(),
