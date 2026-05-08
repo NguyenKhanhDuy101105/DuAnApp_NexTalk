@@ -144,7 +144,6 @@ public class EditProfileFragment extends Fragment {
         }
     }
 
-    // --- LOGIC VALIDATION & CHECK TRÙNG ---
     private void validateAndSave() {
         String name = edtFullName.getText().toString().trim();
         String phone = edtPhone.getText().toString().trim();
@@ -155,7 +154,6 @@ public class EditProfileFragment extends Fragment {
             return;
         }
 
-        // Validate định dạng số điện thoại Việt Nam
         if (!phone.matches("^0[0-9]{9}$")) {
             showMotionToast("Lỗi", "Số điện thoại phải có 10 số và bắt đầu bằng 0", MotionToastStyle.ERROR);
             return;
@@ -163,7 +161,6 @@ public class EditProfileFragment extends Fragment {
 
         progressDialog.show();
 
-        // Kiểm tra trùng số điện thoại trên toàn hệ thống
         DatabaseReference usersRef = FirebaseDatabase.getInstance().getReference("users");
         Query query = usersRef.orderByChild("phone").equalTo(phone);
 
@@ -172,7 +169,6 @@ public class EditProfileFragment extends Fragment {
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 boolean isTaken = false;
                 for (DataSnapshot ds : snapshot.getChildren()) {
-                    // Nếu tìm thấy số điện thoại nhưng ID không phải của mình -> Bị trùng
                     if (!ds.getKey().equals(currentUserId)) {
                         isTaken = true;
                         break;
@@ -215,34 +211,33 @@ public class EditProfileFragment extends Fragment {
     private void updateDatabase(String name, String phone, String bio, String avatarUrl) {
         String oldPhone = currentUser != null ? currentUser.getPhone() : null;
 
-        // Tạo một Map để cập nhật nhiều đường dẫn cùng lúc (Atomic update)
         Map<String, Object> childUpdates = new HashMap<>();
-
-        // 1. Cập nhật thông tin trong bảng users
         childUpdates.put("/users/" + currentUserId + "/name", name);
         childUpdates.put("/users/" + currentUserId + "/phone", phone);
         childUpdates.put("/users/" + currentUserId + "/bio", bio);
         childUpdates.put("/users/" + currentUserId + "/avatar", avatarUrl);
 
-        // 2. Xử lý logic bảng phones nếu số điện thoại thay đổi
         if (oldPhone != null && !oldPhone.equals(phone)) {
-            // Xóa số điện thoại cũ khỏi bảng phones
             childUpdates.put("/phones/" + oldPhone, null);
-            // Thêm số điện thoại mới vào bảng phones trỏ về UID này
             childUpdates.put("/phones/" + phone, currentUserId);
         } else if (oldPhone == null) {
-            // Trường hợp tài khoản chưa có số điện thoại (đề phòng)
             childUpdates.put("/phones/" + phone, currentUserId);
         }
 
-        // Thực hiện cập nhật đồng bộ lên Firebase
         FirebaseDatabase.getInstance().getReference().updateChildren(childUpdates)
                 .addOnCompleteListener(task -> {
                     progressDialog.dismiss();
                     if (task.isSuccessful()) {
+                        // Cập nhật SharedPreferences
+                        if (getContext() != null) {
+                            SharedPreferences.Editor editor = getContext().getSharedPreferences("USER", Context.MODE_PRIVATE).edit();
+                            editor.putString("name", name);
+                            editor.apply();
+                        }
+                        
                         showMotionToast("Thành công", "Cập nhật hồ sơ hoàn tất", MotionToastStyle.SUCCESS);
                         setFieldsEnabled(false);
-                        loadUserData(); // Reload để cập nhật biến currentUser local
+                        loadUserData();
                     } else {
                         showMotionToast("Thất bại", "Không thể đồng bộ dữ liệu", MotionToastStyle.ERROR);
                     }

@@ -28,6 +28,15 @@
             android:name=".ManHinhXacThucDangKy"
             android:exported="false" />
         <activity
+            android:name=".NicknameActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ViewProfileActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ReceiverProfileActivity"
+            android:exported="false" />
+        <activity
             android:name=".MessageActivity"
             android:exported="false" />
         <activity

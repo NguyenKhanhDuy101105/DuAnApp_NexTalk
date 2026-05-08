@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_top_corners_white"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Chọn cảm xúc nhanh"
+        android:textColor="#333333"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Thay đổi biểu tượng cảm xúc mặc định cho cuộc trò chuyện này"
+        android:textColor="#757575"
+        android:textSize="14sp" />
+
+    <GridLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:columnCount="5"
+        android:useDefaultMargins="true">
+
+        <TextView
+            android:id="@+id/reactThumb"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:gravity="center"
+            android:text="👍"
+            android:textSize="30sp" />
+
+        <TextView
+            android:id="@+id/reactHeart"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:gravity="center"
+            android:text="❤️"
+            android:textSize="30sp" />
+
+        <TextView
+            android:id="@+id/reactHaha"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:gravity="center"
+            android:text="😆"
+            android:textSize="30sp" />
+
+        <TextView
+            android:id="@+id/reactWow"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:gravity="center"
+            android:text="😮"
+            android:textSize="30sp" />
+
+        <TextView
+            android:id="@+id/reactSad"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:gravity="center"
+            android:text="😢"
+            android:textSize="30sp" />
+
+        <TextView
+            android:id="@+id/reactAngry"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:gravity="center"
+            android:text="😡"
+            android:textSize="30sp" />
+
+        <TextView
+            android:id="@+id/reactFire"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:gravity="center"
+            android:text="🔥"
+            android:textSize="30sp" />
+
+        <TextView
+            android:id="@+id/reactStar"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:gravity="center"
+            android:text="⭐"
+            android:textSize="30sp" />
+
+        <TextView
+            android:id="@+id/reactCheck"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:gravity="center"
+            android:text="✅"
+            android:textSize="30sp" />
+
+        <TextView
+            android:id="@+id/reactGift"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:gravity="center"
+            android:text="🎁"
+            android:textSize="30sp" />
+
+    </GridLayout>
+
+</LinearLayout>
