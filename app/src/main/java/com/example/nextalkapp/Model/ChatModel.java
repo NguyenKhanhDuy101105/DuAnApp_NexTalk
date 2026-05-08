@@ -5,6 +5,7 @@ public class ChatModel {
     private String sender, receiver, message, type;
     private long timestamp;
     private boolean isseen;
+    private boolean pending; // Thêm trường này để xác định tin nhắn offline
 
     public ChatModel() {
     }
@@ -80,5 +81,13 @@ public class ChatModel {
 
     public void setMessageId(String messageId) {
         this.messageId = messageId;
+    }
+
+    public boolean isPending() {
+        return pending;
+    }
+
+    public void setPending(boolean pending) {
+        this.pending = pending;
     }
 }

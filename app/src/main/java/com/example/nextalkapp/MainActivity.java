@@ -1,13 +1,11 @@
 package com.example.nextalkapp;
 
-import android.content.pm.PackageManager;
-import android.os.Build;
+import android.content.IntentFilter;
+import android.net.ConnectivityManager;
 import android.os.Bundle;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -22,6 +20,7 @@ public class MainActivity extends AppCompatActivity {
     // Trong lớp MainActivity
     private DatabaseReference statusRef;
     BottomNavigationView bottomNav;
+    private NetworkChangeReceiver networkChangeReceiver;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,8 +32,19 @@ public class MainActivity extends AppCompatActivity {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
+        
         mapping();
-        // Hiển thị màn hình Chat mặc định khi vừa vào app
+        
+        // Đăng ký Receiver động để bắt sự kiện mạng (Cần thiết cho Android 7.0+)
+        networkChangeReceiver = new NetworkChangeReceiver();
+        registerReceiver(networkChangeReceiver, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
+
+        // Kiểm tra và gửi tin nhắn chờ ngay khi vào app
+        if (NetworkUtil.isConnected(this)) {
+            NetworkChangeReceiver.syncMessages(this);
+        }
+
+        // Hiển thị màn hình Chat mặc định
         getSupportFragmentManager().beginTransaction().replace(R.id.fragment_container, new ChatFragment()).commit();
 
         bottomNav.setOnItemSelectedListener(item -> {
@@ -67,28 +77,14 @@ public class MainActivity extends AppCompatActivity {
 
             // 2. Thiết lập: Khi mất kết nối (tắt app), Firebase Server tự động set offline
             statusRef.onDisconnect().setValue("offline");
-
-            com.google.firebase.messaging.FirebaseMessaging.getInstance().getToken()
-                    .addOnCompleteListener(task -> {
-                        if (!task.isSuccessful()) {
-                            android.util.Log.w("FCM_Token", "Lấy token thất bại", task.getException());
-                            return;
-                        }
-
-                        // Lấy mã Token định danh thiết bị
-                        String token = task.getResult();
-
-                        // Lưu token này vào bảng users/uid/fcmToken
-                        DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("users").child(uid);
-                        userRef.child("fcmToken").setValue(token);
-                    });
         }
+    }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) !=
-                    PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 101);
-            }
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (networkChangeReceiver != null) {
+            unregisterReceiver(networkChangeReceiver);
         }
     }
 
