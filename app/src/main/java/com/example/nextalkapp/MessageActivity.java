@@ -33,7 +33,9 @@ import com.google.firebase.storage.StorageReference;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import www.sanju.motiontoast.MotionToast;
@@ -170,6 +172,7 @@ public class MessageActivity extends AppCompatActivity {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 mChat = new ArrayList<>();
+                Set<String> firebaseIds = new HashSet<>();
                 
                 // 1. Lấy tin nhắn từ Firebase
                 for (DataSnapshot data : snapshot.getChildren()) {
@@ -177,6 +180,9 @@ public class MessageActivity extends AppCompatActivity {
                     if (chat != null) {
                         chat.setPending(false);
                         mChat.add(chat);
+                        if (chat.getMessageId() != null) {
+                            firebaseIds.add(chat.getMessageId());
+                        }
                     }
                 }
 
@@ -184,6 +190,11 @@ public class MessageActivity extends AppCompatActivity {
                 List<OfflineMessage> pendingMsgs = offlineDbHelper.getAllPendingMessages();
                 for (OfflineMessage offline : pendingMsgs) {
                     if (offline.getChatRoomId().equals(chatRoomId)) {
+                        // Kiểm tra nếu tin nhắn này đã có trên Firebase thì bỏ qua (tránh bị lặp khi đang đồng bộ)
+                        if (offline.getMessageId() != null && firebaseIds.contains(offline.getMessageId())) {
+                            continue;
+                        }
+
                         ChatModel chat = new ChatModel(
                                 offline.getMessageId(),
                                 offline.getSender(),
@@ -198,7 +209,7 @@ public class MessageActivity extends AppCompatActivity {
                     }
                 }
 
-                // Sắp xếp theo thời gian (nếu cần)
+                // Sắp xếp theo thời gian
                 mChat.sort((o1, o2) -> Long.compare(o1.getTimestamp(), o2.getTimestamp()));
 
                 messageAdapter = new MessageAdapter(MessageActivity.this, mChat, chatRoomId);
