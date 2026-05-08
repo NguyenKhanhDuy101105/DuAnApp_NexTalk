@@ -52,13 +52,13 @@ public class NetworkChangeReceiver extends BroadcastReceiver {
                 // Xóa khỏi SQLite sau khi đẩy lên Firebase thành công
                 dbHelper.deleteMessage(msg.getMessageId());
 
-                // Cập nhật Last Message để hiển thị ở danh sách chat
+                // Cập nhật Last Message để hiển thị ở danh sách chat (Sử dụng đường dẫn mới chats/...)
                 HashMap<String, Object> lastMsgMap = new HashMap<>();
                 lastMsgMap.put("lastMessage", msg.getType().equals("image") ? "[Hình ảnh]" : msg.getMessage());
                 lastMsgMap.put("lastTime", msg.getTimestamp());
 
-                dbRef.child("users").child(msg.getSender()).updateChildren(lastMsgMap);
-                dbRef.child("users").child(msg.getReceiver()).updateChildren(lastMsgMap);
+                dbRef.child("chats").child(msg.getSender()).child(msg.getReceiver()).updateChildren(lastMsgMap);
+                dbRef.child("chats").child(msg.getReceiver()).child(msg.getSender()).updateChildren(lastMsgMap);
             }).addOnFailureListener(e -> {
                 Log.e(TAG, "Lỗi khi gửi tin nhắn " + msg.getMessageId() + ": " + e.getMessage());
             });
