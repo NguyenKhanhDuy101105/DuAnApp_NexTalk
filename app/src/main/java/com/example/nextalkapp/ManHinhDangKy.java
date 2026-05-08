@@ -25,6 +25,7 @@ import com.google.firebase.database.FirebaseDatabase;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
+import java.util.Random;
 
 import www.sanju.motiontoast.MotionToast;
 import www.sanju.motiontoast.MotionToastStyle;
@@ -165,44 +166,35 @@ public class ManHinhDangKy extends AppCompatActivity {
         dbRef.child("phones").child(phone).get().addOnSuccessListener(snapshot -> {
             if (snapshot.exists()) {
                 tilPhone.setError("Số điện thoại này đã được đăng ký");
-                edtPhone.requestFocus();
                 return;
             }
-
             dbRef.child("users").orderByChild("email").equalTo(email).get().addOnSuccessListener(emailSnap -> {
                 if (emailSnap.exists()) {
                     tilEmail.setError("Email này đã được sử dụng");
-                    edtEmail.requestFocus();
                 } else {
-                    createUser(name, email, phone, password);
+                    // 🔥 Thay vì tạo User, ta tạo mã OTP và gửi sang màn hình xác thực
+                    sendOtpAndNavigate(name, email, phone, password);
                 }
             });
         });
     }
 
-    private void createUser(String name, String email, String phone, String password) {
-        String uid = dbRef.child("users").push().getKey();
-        if (uid == null) return;
+    private void sendOtpAndNavigate(String name, String email, String phone, String password) {
+        String randomOtp = String.valueOf(new Random().nextInt(9000) + 1000);
 
-        HashMap<String, Object> userMap = new HashMap<>();
-        userMap.put("uid", uid);
-        userMap.put("name", name);
-        userMap.put("email", email);
-        userMap.put("phone", phone);
-        userMap.put("password", hashPassword(password));
-        userMap.put("bio", "Chào mừng bạn đến với NexTalk!");
-        userMap.put("avatar", "");
-        userMap.put("status", "offline");
-        userMap.put("createdAt", System.currentTimeMillis());
+        // Gửi Mail OTP
+        String subject = "NexTalk - Mã xác thực đăng ký";
+        String content = "Mã xác thực đăng ký tài khoản của bạn là: " + randomOtp;
+        new JavaMailAPI(email, subject, content).execute();
 
-        dbRef.child("users").child(uid).setValue(userMap).addOnSuccessListener(unused -> {
-            dbRef.child("phones").child(phone).setValue(uid);
-            showMotionToast("Thành công", "Chào mừng bạn tham gia NexTalk!", MotionToastStyle.SUCCESS);
-            btnSignUp.postDelayed(() -> {
-                startActivity(new Intent(ManHinhDangKy.this, ManHinhDangNhap.class));
-                finish();
-            }, 1500);
-        });
+        // Chuyển sang màn hình xác thực và truyền DATA đi kèm
+        Intent intent = new Intent(ManHinhDangKy.this, ManHinhXacThucDangKy.class);
+        intent.putExtra("reg_name", name);
+        intent.putExtra("reg_email", email);
+        intent.putExtra("reg_phone", phone);
+        intent.putExtra("reg_password", password); // Password đã hash hoặc chưa tùy Duy (nên hash ở bước cuối)
+        intent.putExtra("reg_otp", randomOtp);
+        startActivity(intent);
     }
 
     private String hashPassword(String password) {

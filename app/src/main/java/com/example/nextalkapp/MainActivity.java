@@ -1,9 +1,13 @@
 package com.example.nextalkapp;
 
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -63,6 +67,28 @@ public class MainActivity extends AppCompatActivity {
 
             // 2. Thiết lập: Khi mất kết nối (tắt app), Firebase Server tự động set offline
             statusRef.onDisconnect().setValue("offline");
+
+            com.google.firebase.messaging.FirebaseMessaging.getInstance().getToken()
+                    .addOnCompleteListener(task -> {
+                        if (!task.isSuccessful()) {
+                            android.util.Log.w("FCM_Token", "Lấy token thất bại", task.getException());
+                            return;
+                        }
+
+                        // Lấy mã Token định danh thiết bị
+                        String token = task.getResult();
+
+                        // Lưu token này vào bảng users/uid/fcmToken
+                        DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("users").child(uid);
+                        userRef.child("fcmToken").setValue(token);
+                    });
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) !=
+                    PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 101);
+            }
         }
     }
 
