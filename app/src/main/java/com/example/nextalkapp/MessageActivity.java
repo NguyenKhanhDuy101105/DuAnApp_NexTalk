@@ -3,8 +3,11 @@ package com.example.nextalkapp;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageButton;
@@ -15,6 +18,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.cardview.widget.CardView;
 import androidx.core.content.res.ResourcesCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -40,13 +44,17 @@ import www.sanju.motiontoast.MotionToastStyle;
 public class MessageActivity extends AppCompatActivity {
 
     private ImageButton btnBack, btnSend, btnImage;
+    private TextView btnReaction;
     private ImageView imgReceiverAvatar;
     private TextView tvReceiverName, tvStatusText;
-    private View viewStatus;
+    private View viewStatus, layoutReceiverInfo;
+    private CardView cvAvatar;
     private EditText edtMessage;
     private RecyclerView rcvMessages;
 
     private String receiverUid, receiverName, receiverAvatar, senderUid, chatRoomId;
+    private String themeColor = "#5C8EE6"; // Màu chủ đề mặc định
+    private String quickReaction = "👍"; // Cảm xúc mặc định
     private DatabaseReference dbRef;
     private MessageAdapter messageAdapter;
     private List<ChatModel> mChat;
@@ -88,16 +96,41 @@ public class MessageActivity extends AppCompatActivity {
         displayReceiverInfo();
         readMessages();
         seenMessage(receiverUid);
+        listenForNickname();
+        listenForTheme(); // Lắng nghe chủ đề màu sắc
+        listenForReaction(); // Lắng nghe biểu tượng cảm xúc nhanh
 
         btnBack.setOnClickListener(v -> finish());
+        
         btnSend.setOnClickListener(v -> {
             String msg = edtMessage.getText().toString().trim();
             if (!msg.isEmpty()) {
                 sendMessage(senderUid, receiverUid, msg, "text");
                 edtMessage.setText("");
-            } else {
-                showMotionToast("Cảnh báo", "Vui lòng nhập tin nhắn!", MotionToastStyle.WARNING);
             }
+        });
+
+        btnReaction.setOnClickListener(v -> {
+            sendMessage(senderUid, receiverUid, quickReaction, "text");
+        });
+
+        edtMessage.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (s.toString().trim().length() > 0) {
+                    btnSend.setVisibility(View.VISIBLE);
+                    btnReaction.setVisibility(View.GONE);
+                } else {
+                    btnSend.setVisibility(View.GONE);
+                    btnReaction.setVisibility(View.VISIBLE);
+                }
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {}
         });
 
         btnImage.setOnClickListener(v -> {
@@ -106,6 +139,9 @@ public class MessageActivity extends AppCompatActivity {
             pickImageLauncher.launch(intent);
         });
 
+        cvAvatar.setOnClickListener(v -> openReceiverProfile());
+        layoutReceiverInfo.setOnClickListener(v -> openReceiverProfile());
+
         checkReceiverStatus();
     }
 
@@ -113,10 +149,13 @@ public class MessageActivity extends AppCompatActivity {
         btnBack = findViewById(R.id.btnBackChat);
         btnSend = findViewById(R.id.btnSend);
         btnImage = findViewById(R.id.btnImage);
+        btnReaction = findViewById(R.id.btnReaction);
         imgReceiverAvatar = findViewById(R.id.imgReceiverAvatar);
         tvReceiverName = findViewById(R.id.tvReceiverName);
         tvStatusText = findViewById(R.id.tvStatusText);
         viewStatus = findViewById(R.id.viewStatus);
+        layoutReceiverInfo = findViewById(R.id.layoutReceiverInfo);
+        cvAvatar = findViewById(R.id.cvAvatar);
         edtMessage = findViewById(R.id.edtMessage);
         rcvMessages = findViewById(R.id.rcvMessages);
 
@@ -126,23 +165,84 @@ public class MessageActivity extends AppCompatActivity {
         rcvMessages.setLayoutManager(linearLayoutManager);
     }
 
+    private void openReceiverProfile() {
+        Intent intent = new Intent(MessageActivity.this, ReceiverProfileActivity.class);
+        intent.putExtra("receiverUid", receiverUid);
+        intent.putExtra("receiverName", receiverName);
+        intent.putExtra("receiverAvatar", receiverAvatar);
+        startActivity(intent);
+    }
+
+    private void listenForNickname() {
+        dbRef.child("nicknames").child(chatRoomId).child(receiverUid).addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                String nickname = snapshot.getValue(String.class);
+                if (nickname != null && !nickname.isEmpty()) {
+                    tvReceiverName.setText(nickname);
+                } else {
+                    tvReceiverName.setText(receiverName != null ? receiverName : "Người dùng");
+                }
+            }
+            @Override public void onCancelled(@NonNull DatabaseError error) {}
+        });
+    }
+
+    private void listenForTheme() {
+        dbRef.child("themes").child(chatRoomId).child("color").addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                String color = snapshot.getValue(String.class);
+                if (color != null) {
+                    themeColor = color;
+                    applyTheme(color);
+                }
+            }
+            @Override public void onCancelled(@NonNull DatabaseError error) {}
+        });
+    }
+    
+    private void listenForReaction() {
+        dbRef.child("themes").child(chatRoomId).child("reaction").addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                String reaction = snapshot.getValue(String.class);
+                if (reaction != null) {
+                    quickReaction = reaction;
+                    btnReaction.setText(reaction);
+                } else {
+                    quickReaction = "👍";
+                    btnReaction.setText("👍");
+                }
+            }
+            @Override public void onCancelled(@NonNull DatabaseError error) {}
+        });
+    }
+
+    private void applyTheme(String colorCode) {
+        int color = Color.parseColor(colorCode);
+        btnSend.setColorFilter(color);
+        btnImage.setColorFilter(color);
+        if (messageAdapter != null) {
+            messageAdapter.setThemeColor(colorCode);
+            messageAdapter.notifyDataSetChanged();
+        }
+    }
+
     private void uploadImage(Uri uri) {
         if (uri == null) return;
         showMotionToast("Đang tải", "Hình ảnh đang được gửi...", MotionToastStyle.INFO);
 
         String fileName = UUID.randomUUID().toString() + ".jpg";
-        // Đảm bảo chat_images đã được tạo trên Firebase Console
         StorageReference ref = FirebaseStorage.getInstance().getReference().child("chat_images/" + fileName);
 
         ref.putFile(uri)
                 .addOnSuccessListener(taskSnapshot -> {
-                    // Lấy URL sau khi upload thành công
                     taskSnapshot.getStorage().getDownloadUrl().addOnSuccessListener(downloadUri -> {
                         sendMessage(senderUid, receiverUid, downloadUri.toString(), "image");
                     });
                 })
                 .addOnFailureListener(e -> {
-                    // 🔥 Duy in log này ra để xem lỗi thực sự là gì (ví dụ: Permission Denied)
                     android.util.Log.e("Firebase_Error", "Upload failed: " + e.getMessage());
                     showMotionToast("Lỗi", "Không thể tải ảnh: " + e.getMessage(), MotionToastStyle.ERROR);
                 });
@@ -163,13 +263,10 @@ public class MessageActivity extends AppCompatActivity {
 
         messageRef.setValue(hashMap);
 
-        // Dữ liệu tin nhắn cuối
         HashMap<String, Object> lastMsgMap = new HashMap<>();
         lastMsgMap.put("lastMessage", type.equals("image") ? "[Hình ảnh]" : message);
         lastMsgMap.put("lastTime", System.currentTimeMillis());
 
-        // Cấu trúc mới: chats -> UID_CỦA_MÌNH -> UID_NGƯỜI_KIA -> {lastMessage, lastTime}
-        // Điều này đảm bảo tin nhắn cuối chỉ tồn tại trong mối quan hệ giữa 2 người này
         dbRef.child("chats").child(sender).child(receiver).updateChildren(lastMsgMap);
         dbRef.child("chats").child(receiver).child(sender).updateChildren(lastMsgMap);
     }
@@ -180,7 +277,6 @@ public class MessageActivity extends AppCompatActivity {
                 ResourcesCompat.getFont(this, www.sanju.motiontoast.R.font.helvetica_regular));
     }
 
-    // Các hàm (readMessages, seenMessage, getChatRoomId, checkReceiverStatus, onPause, displayReceiverInfo) giữ nguyên logic cũ Duy nhé.
     private void readMessages() {
         dbRef.child("messages").child(chatRoomId).addValueEventListener(new ValueEventListener() {
             @Override
@@ -191,6 +287,7 @@ public class MessageActivity extends AppCompatActivity {
                     if (chat != null) mChat.add(chat);
                 }
                 messageAdapter = new MessageAdapter(MessageActivity.this, mChat, chatRoomId);
+                messageAdapter.setThemeColor(themeColor);
                 rcvMessages.setAdapter(messageAdapter);
                 if (mChat.size() > 0) rcvMessages.scrollToPosition(mChat.size() - 1);
             }
