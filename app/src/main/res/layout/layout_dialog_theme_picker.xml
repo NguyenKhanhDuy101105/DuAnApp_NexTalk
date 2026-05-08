@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_top_corners_white"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Chọn chủ đề"
+        android:textColor="#333333"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Thay đổi màu sắc cho cuộc trò chuyện này"
+        android:textColor="#757575"
+        android:textSize="14sp" />
+
+    <GridLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:columnCount="4"
+        android:useDefaultMargins="true">
+
+        <View
+            android:id="@+id/colorBlue"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:background="@drawable/bg_circle_blue"
+            android:layout_margin="8dp" />
+
+        <View
+            android:id="@+id/colorPink"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:background="@drawable/bg_circle_pink"
+            android:layout_margin="8dp" />
+
+        <View
+            android:id="@+id/colorPurple"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:background="@drawable/bg_circle_purple"
+            android:layout_margin="8dp" />
+
+        <View
+            android:id="@+id/colorGreen"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:background="@drawable/bg_circle_green"
+            android:layout_margin="8dp" />
+
+        <View
+            android:id="@+id/colorOrange"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:background="@drawable/bg_circle_orange"
+            android:layout_margin="8dp" />
+
+    </GridLayout>
+
+</LinearLayout>

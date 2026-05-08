@@ -67,7 +67,6 @@ public class ManHinhDangNhap extends AppCompatActivity {
         tvLoginSignUp = findViewById(R.id.tvLoginSignUp);
         tvLoginForgotPassword = findViewById(R.id.tvLoginForgotPassword);
 
-        // Mapping TextInputLayout để hiện lỗi
         tilLoginEmailOrPhone = findViewById(R.id.tilLoginEmailOrPhone);
         tilLoginPassword = findViewById(R.id.tilLoginPassword);
 
@@ -89,20 +88,17 @@ public class ManHinhDangNhap extends AppCompatActivity {
 
         btnLogin.setOnClickListener(v -> handleLogin());
 
-        // Thêm TextWatcher để tự xóa lỗi khi Duy gõ phím
         addTextWatcher(edtLoginEmailOrPhone, tilLoginEmailOrPhone);
         addTextWatcher(edtLoginPassword, tilLoginPassword);
     }
 
     private void handleLogin() {
-        // Reset lỗi
         tilLoginEmailOrPhone.setError(null);
         tilLoginPassword.setError(null);
 
         String input = edtLoginEmailOrPhone.getText().toString().trim();
         String password = edtLoginPassword.getText().toString().trim();
 
-        // 1. Validation rỗng
         if (TextUtils.isEmpty(input)) {
             tilLoginEmailOrPhone.setError("Vui lòng nhập Email hoặc SĐT");
             edtLoginEmailOrPhone.requestFocus();
@@ -119,7 +115,6 @@ public class ManHinhDangNhap extends AppCompatActivity {
         SharedPreferences prefs = getSharedPreferences("USER", MODE_PRIVATE);
         SharedPreferences.Editor editor = prefs.edit();
 
-        // TRƯỜNG HỢP 1: LOGIN EMAIL
         if (Patterns.EMAIL_ADDRESS.matcher(input).matches()) {
             dbRef.child("users").orderByChild("email").equalTo(input).get()
                     .addOnSuccessListener(snapshot -> {
@@ -129,8 +124,9 @@ public class ManHinhDangNhap extends AppCompatActivity {
                         } else {
                             snapshot.getChildren().forEach(userSnap -> {
                                 String dbPass = userSnap.child("password").getValue(String.class);
+                                String name = userSnap.child("name").getValue(String.class);
                                 if (dbPass != null && dbPass.equals(hashedPassword)) {
-                                    processSuccessfulLogin(userSnap.getKey(), editor);
+                                    processSuccessfulLogin(userSnap.getKey(), name, editor);
                                 } else {
                                     tilLoginPassword.setError("Mật khẩu không chính xác");
                                     edtLoginPassword.requestFocus();
@@ -139,7 +135,6 @@ public class ManHinhDangNhap extends AppCompatActivity {
                         }
                     });
         }
-        // TRƯỜNG HỢP 2: LOGIN SĐT
         else if (input.matches("^0\\d{9}$")) {
             dbRef.child("phones").child(input).get().addOnSuccessListener(snapshot -> {
                 if (!snapshot.exists()) {
@@ -149,8 +144,9 @@ public class ManHinhDangNhap extends AppCompatActivity {
                     String uid = snapshot.getValue(String.class);
                     dbRef.child("users").child(uid).get().addOnSuccessListener(userSnap -> {
                         String dbPass = userSnap.child("password").getValue(String.class);
+                        String name = userSnap.child("name").getValue(String.class);
                         if (dbPass != null && dbPass.equals(hashedPassword)) {
-                            processSuccessfulLogin(uid, editor);
+                            processSuccessfulLogin(uid, name, editor);
                         } else {
                             tilLoginPassword.setError("Mật khẩu không chính xác");
                             edtLoginPassword.requestFocus();
@@ -172,7 +168,6 @@ public class ManHinhDangNhap extends AppCompatActivity {
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                // Khi người dùng gõ, xóa lỗi và tắt luôn vùng hiển thị lỗi để thu hẹp khoảng cách
                 if (inputLayout.isErrorEnabled()) {
                     inputLayout.setError(null);
                     inputLayout.setErrorEnabled(false);
@@ -184,9 +179,10 @@ public class ManHinhDangNhap extends AppCompatActivity {
         });
     }
 
-    private void processSuccessfulLogin(String uid, SharedPreferences.Editor editor) {
+    private void processSuccessfulLogin(String uid, String name, SharedPreferences.Editor editor) {
         dbRef.child("users").child(uid).child("status").setValue("online");
         editor.putString("uid", uid);
+        editor.putString("name", name); // Lưu tên người dùng
         editor.putBoolean("isRemembered", cbLoginRemember.isChecked());
         editor.apply();
 

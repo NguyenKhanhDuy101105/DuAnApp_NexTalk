@@ -18,6 +18,15 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.NexTalkApp">
         <activity
+            android:name=".NicknameActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ViewProfileActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ReceiverProfileActivity"
+            android:exported="false" />
+        <activity
             android:name=".MessageActivity"
             android:exported="false" />
         <activity
