@@ -13,6 +13,7 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -25,6 +26,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.example.nextalkapp.Model.ChatModel;
+import com.example.nextalkapp.Model.OfflineMessage;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -35,7 +37,9 @@ import com.google.firebase.storage.StorageReference;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import www.sanju.motiontoast.MotionToast;
@@ -58,7 +62,10 @@ public class MessageActivity extends AppCompatActivity {
     private DatabaseReference dbRef;
     private MessageAdapter messageAdapter;
     private List<ChatModel> mChat;
-    ValueEventListener seenListener;
+    private ValueEventListener seenListener;
+    private ValueEventListener messagesListener;
+    private DataSnapshot lastFirebaseSnapshot;
+    private OfflineDbHelper offlineDbHelper;
 
     private final ActivityResultLauncher<Intent> pickImageLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
@@ -91,6 +98,7 @@ public class MessageActivity extends AppCompatActivity {
 
         dbRef = FirebaseDatabase.getInstance().getReference();
         chatRoomId = getChatRoomId(senderUid, receiverUid);
+        offlineDbHelper = new OfflineDbHelper(this);
 
         mapping();
         displayReceiverInfo();
@@ -105,13 +113,13 @@ public class MessageActivity extends AppCompatActivity {
         btnSend.setOnClickListener(v -> {
             String msg = edtMessage.getText().toString().trim();
             if (!msg.isEmpty()) {
-                sendMessage(senderUid, receiverUid, msg, "text");
+                handleSendMessage(msg, "text");
                 edtMessage.setText("");
             }
         });
 
         btnReaction.setOnClickListener(v -> {
-            sendMessage(senderUid, receiverUid, quickReaction, "text");
+            handleSendMessage(quickReaction, "text");
         });
 
         edtMessage.addTextChangedListener(new TextWatcher() {
@@ -230,7 +238,11 @@ public class MessageActivity extends AppCompatActivity {
     }
 
     private void uploadImage(Uri uri) {
-        if (uri == null) return;
+        if (!NetworkUtil.isConnected(this)) {
+            showMotionToast("Lỗi", "Cần có mạng để gửi hình ảnh!", MotionToastStyle.ERROR);
+            return;
+        }
+
         showMotionToast("Đang tải", "Hình ảnh đang được gửi...", MotionToastStyle.INFO);
 
         String fileName = UUID.randomUUID().toString() + ".jpg";
@@ -239,7 +251,7 @@ public class MessageActivity extends AppCompatActivity {
         ref.putFile(uri)
                 .addOnSuccessListener(taskSnapshot -> {
                     taskSnapshot.getStorage().getDownloadUrl().addOnSuccessListener(downloadUri -> {
-                        sendMessage(senderUid, receiverUid, downloadUri.toString(), "image");
+                        handleSendMessage(downloadUri.toString(), "image");
                     });
                 })
                 .addOnFailureListener(e -> {
@@ -248,9 +260,22 @@ public class MessageActivity extends AppCompatActivity {
                 });
     }
 
-    private void sendMessage(String sender, String receiver, String message, String type) {
-        DatabaseReference messageRef = dbRef.child("messages").child(chatRoomId).push();
-        String messageId = messageRef.getKey();
+    private void handleSendMessage(String message, String type) {
+        String messageId = dbRef.child("messages").child(chatRoomId).push().getKey();
+        long timestamp = System.currentTimeMillis();
+
+        if (NetworkUtil.isConnected(this)) {
+            sendMessageToFirebase(messageId, senderUid, receiverUid, message, type, timestamp);
+        } else {
+            OfflineMessage offlineMsg = new OfflineMessage(messageId, senderUid, receiverUid, message, type, timestamp, chatRoomId);
+            offlineDbHelper.addMessage(offlineMsg);
+            Toast.makeText(this, "Đang chờ mạng để gửi...", Toast.LENGTH_SHORT).show();
+            updateChatUI(lastFirebaseSnapshot);
+        }
+    }
+
+    private void sendMessageToFirebase(String messageId, String sender, String receiver, String message, String type, long timestamp) {
+        DatabaseReference messageRef = dbRef.child("messages").child(chatRoomId).child(messageId);
 
         HashMap<String, Object> hashMap = new HashMap<>();
         hashMap.put("messageId", messageId);
@@ -258,14 +283,14 @@ public class MessageActivity extends AppCompatActivity {
         hashMap.put("receiver", receiver);
         hashMap.put("message", message);
         hashMap.put("type", type);
-        hashMap.put("timestamp", System.currentTimeMillis());
+        hashMap.put("timestamp", timestamp);
         hashMap.put("isseen", false);
 
         messageRef.setValue(hashMap);
 
         HashMap<String, Object> lastMsgMap = new HashMap<>();
         lastMsgMap.put("lastMessage", type.equals("image") ? "[Hình ảnh]" : message);
-        lastMsgMap.put("lastTime", System.currentTimeMillis());
+        lastMsgMap.put("lastTime", timestamp);
 
         dbRef.child("chats").child(sender).child(receiver).updateChildren(lastMsgMap);
         dbRef.child("chats").child(receiver).child(sender).updateChildren(lastMsgMap);
@@ -278,21 +303,67 @@ public class MessageActivity extends AppCompatActivity {
     }
 
     private void readMessages() {
-        dbRef.child("messages").child(chatRoomId).addValueEventListener(new ValueEventListener() {
+        if (messagesListener != null) {
+            dbRef.child("messages").child(chatRoomId).removeEventListener(messagesListener);
+        }
+
+        messagesListener = new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                mChat = new ArrayList<>();
-                for (DataSnapshot data : snapshot.getChildren()) {
-                    ChatModel chat = data.getValue(ChatModel.class);
-                    if (chat != null) mChat.add(chat);
-                }
-                messageAdapter = new MessageAdapter(MessageActivity.this, mChat, chatRoomId);
-                messageAdapter.setThemeColor(themeColor);
-                rcvMessages.setAdapter(messageAdapter);
-                if (mChat.size() > 0) rcvMessages.scrollToPosition(mChat.size() - 1);
+                lastFirebaseSnapshot = snapshot;
+                updateChatUI(snapshot);
             }
-            @Override public void onCancelled(@NonNull DatabaseError error) {}
-        });
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {}
+        };
+        dbRef.child("messages").child(chatRoomId).addValueEventListener(messagesListener);
+    }
+
+    private void updateChatUI(DataSnapshot snapshot) {
+        mChat = new ArrayList<>();
+        Set<String> firebaseIds = new HashSet<>();
+
+        if (snapshot != null) {
+            for (DataSnapshot data : snapshot.getChildren()) {
+                ChatModel chat = data.getValue(ChatModel.class);
+                if (chat != null) {
+                    String id = chat.getMessageId() != null ? chat.getMessageId() : data.getKey();
+                    chat.setMessageId(id);
+                    chat.setPending(false);
+                    mChat.add(chat);
+                    if (id != null) firebaseIds.add(id);
+                }
+            }
+        }
+
+        List<OfflineMessage> pendingMsgs = offlineDbHelper.getAllPendingMessages();
+        for (OfflineMessage offline : pendingMsgs) {
+            if (offline.getChatRoomId().equals(chatRoomId)) {
+                if (offline.getMessageId() != null && firebaseIds.contains(offline.getMessageId())) {
+                    continue;
+                }
+
+                ChatModel chat = new ChatModel(
+                        offline.getMessageId(),
+                        offline.getSender(),
+                        offline.getReceiver(),
+                        offline.getMessage(),
+                        offline.getType(),
+                        offline.getTimestamp(),
+                        false
+                );
+                chat.setPending(true);
+                mChat.add(chat);
+            }
+        }
+
+        mChat.sort((o1, o2) -> Long.compare(o1.getTimestamp(), o2.getTimestamp()));
+
+        messageAdapter = new MessageAdapter(MessageActivity.this, mChat, chatRoomId);
+        messageAdapter.setThemeColor(themeColor);
+        rcvMessages.setAdapter(messageAdapter);
+        if (mChat.size() > 0) rcvMessages.scrollToPosition(mChat.size() - 1);
     }
 
     private String getChatRoomId(String uid1, String uid2) {
@@ -343,5 +414,11 @@ public class MessageActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         if (seenListener != null) dbRef.child("messages").child(chatRoomId).removeEventListener(seenListener);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (messagesListener != null) dbRef.child("messages").child(chatRoomId).removeEventListener(messagesListener);
     }
 }
