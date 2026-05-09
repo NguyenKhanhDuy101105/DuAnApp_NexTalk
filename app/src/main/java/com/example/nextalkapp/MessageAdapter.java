@@ -5,7 +5,6 @@ import android.app.Dialog;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Color;
-import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -128,7 +127,13 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.ViewHold
         
         if (holder.txt_status != null) {
             if (chat.getSender().equals(fuser)) {
-                holder.txt_status.setText(chat.isIsseen() ? "Đã xem - " + time : "Đã gửi - " + time);
+                if (chat.isPending()) {
+                    holder.txt_status.setText("Đang chờ - " + time);
+                    if (holder.img_pending != null) holder.img_pending.setVisibility(View.VISIBLE);
+                } else {
+                    holder.txt_status.setText(chat.isIsseen() ? "Đã xem - " + time : "Đã gửi - " + time);
+                    if (holder.img_pending != null) holder.img_pending.setVisibility(View.GONE);
+                }
             } else {
                 holder.txt_status.setText(time);
             }
@@ -138,7 +143,9 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.ViewHold
         }
 
         holder.itemView.setOnLongClickListener(v -> {
-            showDeleteDialog(chat);
+            if (!chat.isPending()) {
+                showDeleteDialog(chat);
+            }
             return true;
         });
     }
@@ -216,13 +223,14 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.ViewHold
 
     public class ViewHolder extends RecyclerView.ViewHolder {
         public TextView show_message, txt_status, tvSystemMessage;
-        public ImageView img_chat;
+        public ImageView img_chat, img_pending;
         public ViewHolder(View itemView) {
             super(itemView);
             show_message = itemView.findViewById(R.id.show_message);
             txt_status = itemView.findViewById(R.id.txt_status);
             img_chat = itemView.findViewById(R.id.img_chat);
             tvSystemMessage = itemView.findViewById(R.id.tvSystemMessage);
+            img_pending = itemView.findViewById(R.id.img_pending);
         }
     }
 
