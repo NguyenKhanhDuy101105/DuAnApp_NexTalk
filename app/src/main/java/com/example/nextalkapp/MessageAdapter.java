@@ -11,6 +11,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -25,7 +26,6 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
-import com.google.firebase.storage.FirebaseStorage;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -46,7 +46,7 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.ViewHold
     private List<ChatModel> mChat;
     private String fuser;
     private String chatRoomId;
-    private String themeColor = "#5C8EE6"; // Màu chủ đề mặc định
+    private String themeColor = "#5C8EE6";
 
     public MessageAdapter(Context mContext, List<ChatModel> mChat, String chatRoomId) {
         this.mChat = mChat;
@@ -77,7 +77,7 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.ViewHold
     public void onBindViewHolder(@NonNull MessageAdapter.ViewHolder holder, int position) {
         ChatModel chat = mChat.get(position);
 
-        // --- XỬ LÝ TIN NHẮN HỆ THỐNG ---
+        // --- 1. XỬ LÝ TIN NHẮN HỆ THỐNG ---
         if (getItemViewType(position) == MSG_TYPE_SYSTEM) {
             String msg = chat.getMessage();
             SharedPreferences prefs = mContext.getSharedPreferences("USER", Context.MODE_PRIVATE);
@@ -92,24 +92,39 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.ViewHold
                     msg = msg.replace(myName, "bạn");
                 }
             }
-            
+
             if (holder.tvSystemMessage != null) {
                 holder.tvSystemMessage.setText(msg);
             }
             return;
         }
 
-        // --- XỬ LÝ TIN NHẮN THÔNG THƯỜNG ---
-        if (holder.show_message != null) {
+        // --- 2. XỬ LÝ TIN NHẮN THÔNG THƯỜNG (ẢNH/CHỮ) ---
+        if (holder.show_message != null && holder.img_chat != null) {
+            RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams) holder.txt_status.getLayoutParams();
+
             if ("image".equals(chat.getType())) {
+                // Hiển thị ảnh, ẩn chữ
                 holder.show_message.setVisibility(View.GONE);
                 holder.img_chat.setVisibility(View.VISIBLE);
-                Glide.with(mContext).load(chat.getMessage()).placeholder(R.drawable.logo2).into(holder.img_chat);
+
+                Glide.with(mContext)
+                        .load(chat.getMessage())
+                        .placeholder(R.drawable.logo2)
+                        .into(holder.img_chat);
+
+                // Cập nhật vị trí txt_status xuống dưới ảnh
+                params.addRule(RelativeLayout.BELOW, R.id.img_chat);
+
             } else {
+                // Hiển thị chữ, ẩn ảnh
                 holder.show_message.setVisibility(View.VISIBLE);
                 holder.img_chat.setVisibility(View.GONE);
                 holder.show_message.setText(chat.getMessage());
-                
+
+                // Cập nhật vị trí txt_status xuống dưới text
+                params.addRule(RelativeLayout.BELOW, R.id.show_message);
+
                 // Áp dụng màu chủ đề cho tin nhắn bên phải
                 if (getItemViewType(position) == MSG_TYPE_RIGHT) {
                     Drawable background = holder.show_message.getBackground();
@@ -120,11 +135,13 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.ViewHold
                     }
                 }
             }
+            holder.txt_status.setLayoutParams(params);
         }
 
+        // --- 3. XỬ LÝ THỜI GIAN VÀ TRẠNG THÁI ---
         SimpleDateFormat sdf = new SimpleDateFormat("HH:mm", Locale.getDefault());
         String time = sdf.format(new Date(chat.getTimestamp()));
-        
+
         if (holder.txt_status != null) {
             if (chat.getSender().equals(fuser)) {
                 if (chat.isPending()) {
@@ -138,8 +155,8 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.ViewHold
                 holder.txt_status.setText(time);
             }
 
-            holder.itemView.setOnClickListener(v -> 
-                holder.txt_status.setVisibility(holder.txt_status.getVisibility() == View.GONE ? View.VISIBLE : View.GONE));
+            holder.itemView.setOnClickListener(v ->
+                    holder.txt_status.setVisibility(holder.txt_status.getVisibility() == View.GONE ? View.VISIBLE : View.GONE));
         }
 
         holder.itemView.setOnLongClickListener(v -> {
@@ -196,11 +213,7 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.ViewHold
                             });
                 });
 
-        if ("image".equals(chat.getType())) {
-            try {
-                FirebaseStorage.getInstance().getReferenceFromUrl(chat.getMessage()).delete();
-            } catch (Exception ignored) {}
-        }
+        // Lưu ý: Không xóa ảnh từ link Cloudinary bằng SDK Firebase được
     }
 
     private void updateFirebaseLastMessage(String sender, String receiver, String msg, long time) {

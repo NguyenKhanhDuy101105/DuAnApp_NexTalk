@@ -13,7 +13,6 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -25,6 +24,9 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
+import com.cloudinary.android.MediaManager;
+import com.cloudinary.android.callback.ErrorInfo;
+import com.cloudinary.android.callback.UploadCallback;
 import com.example.nextalkapp.Model.ChatModel;
 import com.example.nextalkapp.Model.OfflineMessage;
 import com.google.firebase.database.DataSnapshot;
@@ -32,15 +34,13 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
-import com.google.firebase.storage.FirebaseStorage;
-import com.google.firebase.storage.StorageReference;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 
 import www.sanju.motiontoast.MotionToast;
 import www.sanju.motiontoast.MotionToastStyle;
@@ -57,8 +57,8 @@ public class MessageActivity extends AppCompatActivity {
     private RecyclerView rcvMessages;
 
     private String receiverUid, receiverName, receiverAvatar, senderUid, chatRoomId;
-    private String themeColor = "#5C8EE6"; // Màu chủ đề mặc định
-    private String quickReaction = "👍"; // Cảm xúc mặc định
+    private String themeColor = "#5C8EE6";
+    private String quickReaction = "👍";
     private DatabaseReference dbRef;
     private MessageAdapter messageAdapter;
     private List<ChatModel> mChat;
@@ -81,6 +81,9 @@ public class MessageActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_message);
 
+        // Khởi tạo Cloudinary (Kiểm tra tránh init nhiều lần gây crash)
+        initCloudinary();
+
         receiverUid = getIntent().getStringExtra("receiverUid");
         receiverName = getIntent().getStringExtra("receiverName");
         receiverAvatar = getIntent().getStringExtra("receiverAvatar");
@@ -91,7 +94,6 @@ public class MessageActivity extends AppCompatActivity {
         if (senderUid != null) {
             DatabaseReference myStatusRef = FirebaseDatabase.getInstance()
                     .getReference("users").child(senderUid).child("status");
-
             myStatusRef.setValue("online");
             myStatusRef.onDisconnect().setValue("offline");
         }
@@ -105,11 +107,11 @@ public class MessageActivity extends AppCompatActivity {
         readMessages();
         seenMessage(receiverUid);
         listenForNickname();
-        listenForTheme(); // Lắng nghe chủ đề màu sắc
-        listenForReaction(); // Lắng nghe biểu tượng cảm xúc nhanh
+        listenForTheme();
+        listenForReaction();
 
         btnBack.setOnClickListener(v -> finish());
-        
+
         btnSend.setOnClickListener(v -> {
             String msg = edtMessage.getText().toString().trim();
             if (!msg.isEmpty()) {
@@ -118,14 +120,11 @@ public class MessageActivity extends AppCompatActivity {
             }
         });
 
-        btnReaction.setOnClickListener(v -> {
-            handleSendMessage(quickReaction, "text");
-        });
+        btnReaction.setOnClickListener(v -> handleSendMessage(quickReaction, "text"));
 
         edtMessage.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 if (s.toString().trim().length() > 0) {
@@ -136,7 +135,6 @@ public class MessageActivity extends AppCompatActivity {
                     btnReaction.setVisibility(View.VISIBLE);
                 }
             }
-
             @Override
             public void afterTextChanged(Editable s) {}
         });
@@ -151,6 +149,18 @@ public class MessageActivity extends AppCompatActivity {
         layoutReceiverInfo.setOnClickListener(v -> openReceiverProfile());
 
         checkReceiverStatus();
+    }
+
+    private void initCloudinary() {
+        try {
+            Map<String, Object> config = new HashMap<>();
+            config.put("cloud_name", "dak681rft");
+            config.put("api_key", "251122464815674");
+            config.put("api_secret", "xbzo_uLnnX-p5eTuwqoDaDhkA3I");
+            MediaManager.init(this, config);
+        } catch (Exception e) {
+            android.util.Log.d("Cloudinary", "Already initialized");
+        }
     }
 
     private void mapping() {
@@ -173,70 +183,6 @@ public class MessageActivity extends AppCompatActivity {
         rcvMessages.setLayoutManager(linearLayoutManager);
     }
 
-    private void openReceiverProfile() {
-        Intent intent = new Intent(MessageActivity.this, ReceiverProfileActivity.class);
-        intent.putExtra("receiverUid", receiverUid);
-        intent.putExtra("receiverName", receiverName);
-        intent.putExtra("receiverAvatar", receiverAvatar);
-        startActivity(intent);
-    }
-
-    private void listenForNickname() {
-        dbRef.child("nicknames").child(chatRoomId).child(receiverUid).addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                String nickname = snapshot.getValue(String.class);
-                if (nickname != null && !nickname.isEmpty()) {
-                    tvReceiverName.setText(nickname);
-                } else {
-                    tvReceiverName.setText(receiverName != null ? receiverName : "Người dùng");
-                }
-            }
-            @Override public void onCancelled(@NonNull DatabaseError error) {}
-        });
-    }
-
-    private void listenForTheme() {
-        dbRef.child("themes").child(chatRoomId).child("color").addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                String color = snapshot.getValue(String.class);
-                if (color != null) {
-                    themeColor = color;
-                    applyTheme(color);
-                }
-            }
-            @Override public void onCancelled(@NonNull DatabaseError error) {}
-        });
-    }
-    
-    private void listenForReaction() {
-        dbRef.child("themes").child(chatRoomId).child("reaction").addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                String reaction = snapshot.getValue(String.class);
-                if (reaction != null) {
-                    quickReaction = reaction;
-                    btnReaction.setText(reaction);
-                } else {
-                    quickReaction = "👍";
-                    btnReaction.setText("👍");
-                }
-            }
-            @Override public void onCancelled(@NonNull DatabaseError error) {}
-        });
-    }
-
-    private void applyTheme(String colorCode) {
-        int color = Color.parseColor(colorCode);
-        btnSend.setColorFilter(color);
-        btnImage.setColorFilter(color);
-        if (messageAdapter != null) {
-            messageAdapter.setThemeColor(colorCode);
-            messageAdapter.notifyDataSetChanged();
-        }
-    }
-
     private void uploadImage(Uri uri) {
         if (!NetworkUtil.isConnected(this)) {
             showMotionToast("Lỗi", "Cần có mạng để gửi hình ảnh!", MotionToastStyle.ERROR);
@@ -245,19 +191,27 @@ public class MessageActivity extends AppCompatActivity {
 
         showMotionToast("Đang tải", "Hình ảnh đang được gửi...", MotionToastStyle.INFO);
 
-        String fileName = UUID.randomUUID().toString() + ".jpg";
-        StorageReference ref = FirebaseStorage.getInstance().getReference().child("chat_images/" + fileName);
-
-        ref.putFile(uri)
-                .addOnSuccessListener(taskSnapshot -> {
-                    taskSnapshot.getStorage().getDownloadUrl().addOnSuccessListener(downloadUri -> {
-                        handleSendMessage(downloadUri.toString(), "image");
-                    });
-                })
-                .addOnFailureListener(e -> {
-                    android.util.Log.e("Firebase_Error", "Upload failed: " + e.getMessage());
-                    showMotionToast("Lỗi", "Không thể tải ảnh: " + e.getMessage(), MotionToastStyle.ERROR);
-                });
+        // Upload lên Cloudinary sử dụng Upload Preset "Images"
+        MediaManager.get().upload(uri)
+                .unsigned("Images")
+                .option("folder", "chat_images")
+                .callback(new UploadCallback() {
+                    @Override
+                    public void onStart(String requestId) {}
+                    @Override
+                    public void onProgress(String requestId, long bytes, long totalBytes) {}
+                    @Override
+                    public void onSuccess(String requestId, Map resultData) {
+                        String imageUrl = (String) resultData.get("secure_url");
+                        handleSendMessage(imageUrl, "image");
+                    }
+                    @Override
+                    public void onError(String requestId, ErrorInfo error) {
+                        showMotionToast("Lỗi", "Tải ảnh thất bại!", MotionToastStyle.ERROR);
+                    }
+                    @Override
+                    public void onReschedule(String requestId, ErrorInfo error) {}
+                }).dispatch();
     }
 
     private void handleSendMessage(String message, String type) {
@@ -269,7 +223,7 @@ public class MessageActivity extends AppCompatActivity {
         } else {
             OfflineMessage offlineMsg = new OfflineMessage(messageId, senderUid, receiverUid, message, type, timestamp, chatRoomId);
             offlineDbHelper.addMessage(offlineMsg);
-            Toast.makeText(this, "Đang chờ mạng để gửi...", Toast.LENGTH_SHORT).show();
+            showMotionToast("Ngoại tuyến", "Tin nhắn sẽ được gửi khi có mạng", MotionToastStyle.INFO);
             updateChatUI(lastFirebaseSnapshot);
         }
     }
@@ -296,24 +250,13 @@ public class MessageActivity extends AppCompatActivity {
         dbRef.child("chats").child(receiver).child(sender).updateChildren(lastMsgMap);
     }
 
-    private void showMotionToast(String title, String msg, MotionToastStyle style) {
-        MotionToast.Companion.createColorToast(this, title, msg,
-                style, MotionToast.GRAVITY_BOTTOM, MotionToast.LONG_DURATION,
-                ResourcesCompat.getFont(this, www.sanju.motiontoast.R.font.helvetica_regular));
-    }
-
     private void readMessages() {
-        if (messagesListener != null) {
-            dbRef.child("messages").child(chatRoomId).removeEventListener(messagesListener);
-        }
-
         messagesListener = new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 lastFirebaseSnapshot = snapshot;
                 updateChatUI(snapshot);
             }
-
             @Override
             public void onCancelled(@NonNull DatabaseError error) {}
         };
@@ -328,60 +271,58 @@ public class MessageActivity extends AppCompatActivity {
             for (DataSnapshot data : snapshot.getChildren()) {
                 ChatModel chat = data.getValue(ChatModel.class);
                 if (chat != null) {
-                    String id = chat.getMessageId() != null ? chat.getMessageId() : data.getKey();
-                    chat.setMessageId(id);
                     chat.setPending(false);
                     mChat.add(chat);
-                    if (id != null) firebaseIds.add(id);
+                    firebaseIds.add(chat.getMessageId());
                 }
             }
         }
 
         List<OfflineMessage> pendingMsgs = offlineDbHelper.getAllPendingMessages();
         for (OfflineMessage offline : pendingMsgs) {
-            if (offline.getChatRoomId().equals(chatRoomId)) {
-                if (offline.getMessageId() != null && firebaseIds.contains(offline.getMessageId())) {
-                    continue;
-                }
-
-                ChatModel chat = new ChatModel(
-                        offline.getMessageId(),
-                        offline.getSender(),
-                        offline.getReceiver(),
-                        offline.getMessage(),
-                        offline.getType(),
-                        offline.getTimestamp(),
-                        false
-                );
+            if (offline.getChatRoomId().equals(chatRoomId) && !firebaseIds.contains(offline.getMessageId())) {
+                ChatModel chat = new ChatModel(offline.getMessageId(), offline.getSender(),
+                        offline.getReceiver(), offline.getMessage(), offline.getType(),
+                        offline.getTimestamp(), false);
                 chat.setPending(true);
                 mChat.add(chat);
             }
         }
 
         mChat.sort((o1, o2) -> Long.compare(o1.getTimestamp(), o2.getTimestamp()));
-
         messageAdapter = new MessageAdapter(MessageActivity.this, mChat, chatRoomId);
         messageAdapter.setThemeColor(themeColor);
         rcvMessages.setAdapter(messageAdapter);
         if (mChat.size() > 0) rcvMessages.scrollToPosition(mChat.size() - 1);
     }
 
+    // Các hàm phụ trợ giữ nguyên...
     private String getChatRoomId(String uid1, String uid2) {
-        if (uid1 == null || uid2 == null) return "";
         return (uid1.compareTo(uid2) < 0) ? uid1 + "_" + uid2 : uid2 + "_" + uid1;
     }
 
+    private void showMotionToast(String title, String msg, MotionToastStyle style) {
+        MotionToast.Companion.createColorToast(this, title, msg,
+                style, MotionToast.GRAVITY_BOTTOM, MotionToast.LONG_DURATION,
+                ResourcesCompat.getFont(this, www.sanju.motiontoast.R.font.helvetica_regular));
+    }
+
+    private void openReceiverProfile() {
+        Intent intent = new Intent(MessageActivity.this, ReceiverProfileActivity.class);
+        intent.putExtra("receiverUid", receiverUid);
+        intent.putExtra("receiverName", receiverName);
+        intent.putExtra("receiverAvatar", receiverAvatar);
+        startActivity(intent);
+    }
+
     private void seenMessage(String userId) {
-        DatabaseReference reference = FirebaseDatabase.getInstance().getReference("messages").child(chatRoomId);
-        seenListener = reference.addValueEventListener(new ValueEventListener() {
+        seenListener = dbRef.child("messages").child(chatRoomId).addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 for (DataSnapshot data : snapshot.getChildren()) {
                     ChatModel chat = data.getValue(ChatModel.class);
                     if (chat != null && chat.getReceiver().equals(senderUid) && chat.getSender().equals(userId)) {
-                        HashMap<String, Object> hashMap = new HashMap<>();
-                        hashMap.put("isseen", true);
-                        data.getRef().updateChildren(hashMap);
+                        data.getRef().child("isseen").setValue(true);
                     }
                 }
             }
@@ -400,7 +341,7 @@ public class MessageActivity extends AppCompatActivity {
         dbRef.child("users").child(receiverUid).addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                if (snapshot.exists() && snapshot.hasChild("status")) {
+                if (snapshot.exists()) {
                     String status = snapshot.child("status").getValue(String.class);
                     tvStatusText.setText("online".equals(status) ? "Đang hoạt động" : "Ngoại tuyến");
                     viewStatus.setBackgroundResource("online".equals(status) ? R.drawable.bg_status_online : R.drawable.bg_status_offline);
@@ -408,6 +349,46 @@ public class MessageActivity extends AppCompatActivity {
             }
             @Override public void onCancelled(@NonNull DatabaseError error) {}
         });
+    }
+
+    private void listenForNickname() {
+        dbRef.child("nicknames").child(chatRoomId).child(receiverUid).addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                String nickname = snapshot.getValue(String.class);
+                if (nickname != null) tvReceiverName.setText(nickname);
+            }
+            @Override public void onCancelled(@NonNull DatabaseError error) {}
+        });
+    }
+
+    private void listenForTheme() {
+        dbRef.child("themes").child(chatRoomId).child("color").addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                String color = snapshot.getValue(String.class);
+                if (color != null) { themeColor = color; applyTheme(color); }
+            }
+            @Override public void onCancelled(@NonNull DatabaseError error) {}
+        });
+    }
+
+    private void listenForReaction() {
+        dbRef.child("themes").child(chatRoomId).child("reaction").addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                String reaction = snapshot.getValue(String.class);
+                if (reaction != null) { quickReaction = reaction; btnReaction.setText(reaction); }
+            }
+            @Override public void onCancelled(@NonNull DatabaseError error) {}
+        });
+    }
+
+    private void applyTheme(String colorCode) {
+        int color = Color.parseColor(colorCode);
+        btnSend.setColorFilter(color);
+        btnImage.setColorFilter(color);
+        if (messageAdapter != null) { messageAdapter.setThemeColor(colorCode); messageAdapter.notifyDataSetChanged(); }
     }
 
     @Override
