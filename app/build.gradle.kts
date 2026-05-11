@@ -76,8 +76,11 @@ dependencies {
     // Nếu Duy dùng Java thì dùng annotationProcessor, nếu dùng Kotlin thì dùng kapt
     annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
 
-    // Các thư viện UI của Duy
+    // Các thư viện UI
     implementation("com.google.android.material:material:1.12.0") // Cập nhật bản mới hơn để hỗ trợ MaterialButton
     implementation("com.github.GrenderG:Toasty:1.5.2")
     implementation("com.github.Spikeysanju:MotionToast:1.4")
+
+    // Couldinary
+    implementation("com.cloudinary:cloudinary-android:2.3.1")
 }
