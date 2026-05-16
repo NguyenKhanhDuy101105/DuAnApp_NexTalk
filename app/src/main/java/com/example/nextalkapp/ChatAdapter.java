@@ -46,12 +46,23 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
 
         holder.txtName.setText(user.name);
 
-        // --- XỬ LÝ HIỂN THỊ "BẠN" TRONG TIN NHẮN CUỐI ---
+        // --- XỬ LÝ HIỂN THỊ "BẠN" VÀ GIẢI MÃ TIN NHẮN CUỐI ---
         SharedPreferences prefs = holder.itemView.getContext().getSharedPreferences("USER", Context.MODE_PRIVATE);
         String myName = prefs.getString("name", "");
         String lastMsg = user.lastMessage;
 
         if (lastMsg != null && !lastMsg.isEmpty()) {
+            // 1. GIẢI MÃ TRƯỚC (Chỉ giải mã nếu không phải là hình ảnh)
+            if (!lastMsg.equals("[Hình ảnh]")) {
+                try {
+                    lastMsg = AESUtils.decrypt(lastMsg);
+                } catch (Exception e) {
+                    // Nếu lỗi (có thể là tin nhắn cũ chưa mã hóa), giữ nguyên để không bị mất text
+                    android.util.Log.e("AES_ChatAdapter", "Lỗi giải mã: " + e.getMessage());
+                }
+            }
+
+            // 2. SAU ĐÓ MỚI XỬ LÝ CHỮ "BẠN"
             if (!myName.isEmpty() && lastMsg.startsWith(myName)) {
                 lastMsg = lastMsg.replaceFirst(myName, "Bạn");
             }

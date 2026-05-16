@@ -52,45 +52,41 @@ public class SettingFragment extends Fragment {
     }
 
     private void setupEvents() {
-        // Chuyển sang màn hình Quản lý hồ sơ
+        // SỬA LỖI: Sử dụng R.id.main_holder thay vì R.id.view_pager để tránh crash
         itemAccount.setOnClickListener(v -> {
-            EditProfileFragment editProfileFragment = new EditProfileFragment();
-            getParentFragmentManager().beginTransaction()
-                    .setCustomAnimations(android.R.anim.fade_in, android.R.anim.fade_out,
-                            android.R.anim.fade_in, android.R.anim.fade_out)
-                    .replace(R.id.fragment_container, editProfileFragment)
-                    .addToBackStack(null)
-                    .commit();
-        });
-
-        // Chuyển sang màn hình Đổi mật khẩu
-        itemPrivacy.setOnClickListener(v -> {
-            ChangePasswordFragment changePasswordFragment = new ChangePasswordFragment();
-            getParentFragmentManager().beginTransaction()
-                    .setCustomAnimations(android.R.anim.fade_in, android.R.anim.fade_out,
-                            android.R.anim.fade_in, android.R.anim.fade_out)
-                    .replace(R.id.fragment_container, changePasswordFragment)
-                    .addToBackStack(null)
-                    .commit();
-        });
-
-        // Chuyển sang màn hình Xóa tài khoản
-        if (itemDeleteAccount != null) {
-            itemDeleteAccount.setOnClickListener(v -> {
-                DeleteAccountFragment deleteAccountFragment = new DeleteAccountFragment();
+            if (getActivity() != null) {
                 getParentFragmentManager().beginTransaction()
-                        .setCustomAnimations(android.R.anim.fade_in, android.R.anim.fade_out,
-                                android.R.anim.fade_in, android.R.anim.fade_out)
-                        .replace(R.id.fragment_container, deleteAccountFragment)
+                        .setCustomAnimations(android.R.anim.fade_in, android.R.anim.fade_out, android.R.anim.fade_in, android.R.anim.fade_out)
+                        .replace(R.id.main_holder, new EditProfileFragment())
                         .addToBackStack(null)
                         .commit();
+            }
+        });
+
+        itemPrivacy.setOnClickListener(v -> {
+            if (getActivity() != null) {
+                getParentFragmentManager().beginTransaction()
+                        .setCustomAnimations(android.R.anim.fade_in, android.R.anim.fade_out, android.R.anim.fade_in, android.R.anim.fade_out)
+                        .replace(R.id.main_holder, new ChangePasswordFragment())
+                        .addToBackStack(null)
+                        .commit();
+            }
+        });
+
+        if (itemDeleteAccount != null) {
+            itemDeleteAccount.setOnClickListener(v -> {
+                if (getActivity() != null) {
+                    getParentFragmentManager().beginTransaction()
+                            .setCustomAnimations(android.R.anim.fade_in, android.R.anim.fade_out, android.R.anim.fade_in, android.R.anim.fade_out)
+                            .replace(R.id.main_holder, new DeleteAccountFragment())
+                            .addToBackStack(null)
+                            .commit();
+                }
             });
         }
 
-        // Sự kiện Đăng xuất
         btnLogout.setOnClickListener(v -> showLogoutDialog());
 
-        // Sự kiện gạt Chế độ tối
         switchDarkMode.setOnCheckedChangeListener((buttonView, isChecked) -> {
             String msg = isChecked ? "Đã bật chế độ tối" : "Đã tắt chế độ tối";
             showMotionToast("Giao diện", msg, MotionToastStyle.INFO);

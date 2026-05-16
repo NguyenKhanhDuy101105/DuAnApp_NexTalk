@@ -4,11 +4,12 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" /> <!-- Cho Android 13+ -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="replace" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
+        android:name=".NexTalkApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -17,6 +18,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.NexTalkApp">
+
         <service
             android:name=".MyFirebaseMessagingService"
             android:exported="false">
@@ -24,14 +26,12 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
         <activity
             android:name=".ManHinhXacThucDangKy"
             android:exported="false" />
         <activity
             android:name=".NicknameActivity"
-            android:exported="false" />
-        <activity
-            android:name=".ViewProfileActivity"
             android:exported="false" />
         <activity
             android:name=".ReceiverProfileActivity"
@@ -54,15 +54,16 @@
         <activity
             android:name=".ManHinhDangKy"
             android:exported="false" />
+
         <activity
             android:name=".ManHinhCho"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
         <activity
             android:name=".MainActivity"
             android:exported="false" />

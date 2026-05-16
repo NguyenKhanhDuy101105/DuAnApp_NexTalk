@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -104,7 +105,7 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.ViewHold
             RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams) holder.txt_status.getLayoutParams();
 
             if ("image".equals(chat.getType())) {
-                // Hiển thị ảnh, ẩn chữ
+                // Tin nhắn ảnh: KHÔNG giải mã (vì message là link URL)
                 holder.show_message.setVisibility(View.GONE);
                 holder.img_chat.setVisibility(View.VISIBLE);
 
@@ -113,14 +114,27 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.ViewHold
                         .placeholder(R.drawable.logo2)
                         .into(holder.img_chat);
 
-                // Cập nhật vị trí txt_status xuống dưới ảnh
                 params.addRule(RelativeLayout.BELOW, R.id.img_chat);
 
             } else {
-                // Hiển thị chữ, ẩn ảnh
+                // Tin nhắn chữ: CẦN giải mã
                 holder.show_message.setVisibility(View.VISIBLE);
                 holder.img_chat.setVisibility(View.GONE);
-                holder.show_message.setText(chat.getMessage());
+
+                // MÃ NGUỒN GIẢI MÃ Ở ĐÂY
+                String decryptedMsg = chat.getMessage();
+                try {
+                    // Chỉ giải mã nếu tin nhắn không trống
+                    if (decryptedMsg != null && !decryptedMsg.isEmpty()) {
+                        decryptedMsg = AESUtils.decrypt(decryptedMsg);
+                    }
+                } catch (Exception e) {
+                    // Nếu lỗi (tin nhắn cũ chưa mã hóa), vẫn giữ nguyên text gốc để không bị trống tin nhắn
+                    Log.e("AES_Decrypt", "Lỗi giải mã: " + e.getMessage());
+                    decryptedMsg = chat.getMessage();
+                }
+
+                holder.show_message.setText(decryptedMsg);
 
                 // Cập nhật vị trí txt_status xuống dưới text
                 params.addRule(RelativeLayout.BELOW, R.id.show_message);
