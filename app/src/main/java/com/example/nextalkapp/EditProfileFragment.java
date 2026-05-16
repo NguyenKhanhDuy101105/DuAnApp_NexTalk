@@ -4,11 +4,8 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
-import android.util.Base64;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -25,6 +22,9 @@ import androidx.core.content.res.ResourcesCompat;
 import androidx.fragment.app.Fragment;
 
 import com.bumptech.glide.Glide;
+import com.cloudinary.android.MediaManager;
+import com.cloudinary.android.callback.ErrorInfo;
+import com.cloudinary.android.callback.UploadCallback;
 import com.example.nextalkapp.Model.User;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -35,11 +35,7 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
-import com.google.firebase.storage.FirebaseStorage;
-import com.google.firebase.storage.StorageReference;
 
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -61,12 +57,12 @@ public class EditProfileFragment extends Fragment {
     private Uri selectedImageUri;
     private ProgressDialog progressDialog;
 
-    private final String BUCKET_URL = "gs://nexttalk-ca7be.firebasestorage.app";
-
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_edit_profile, container, false);
+
+        initCloudinaryOnce();
 
         if (getContext() != null) {
             SharedPreferences pref = getContext().getSharedPreferences("USER", Context.MODE_PRIVATE);
@@ -82,6 +78,18 @@ public class EditProfileFragment extends Fragment {
 
         setupEvents();
         return view;
+    }
+
+    private void initCloudinaryOnce() {
+        try {
+            Map<String, Object> config = new HashMap<>();
+            config.put("cloud_name", "dak681rft");
+            config.put("api_key", "251122464815674");
+            config.put("api_secret", "xbzo_uLnnX-p5eTuwqoDaDhkA3I");
+            MediaManager.init(requireContext(), config);
+        } catch (Exception e) {
+            Log.d("Cloudinary", "Đã khởi tạo trước đó");
+        }
     }
 
     private void mapping(View view) {
@@ -139,8 +147,19 @@ public class EditProfileFragment extends Fragment {
         edtPhone.setText(currentUser.getPhone() != null ? currentUser.getPhone() : "");
         edtBio.setText(currentUser.getBio() != null ? currentUser.getBio() : "");
 
-        if (getContext() != null && currentUser.getAvatar() != null && !currentUser.getAvatar().isEmpty()) {
-            Glide.with(this).load(currentUser.getAvatar()).placeholder(R.drawable.logo2).into(imgAvatarProfile);
+        String avatarUrl = currentUser.getAvatar();
+        if (getContext() != null && avatarUrl != null && !avatarUrl.isEmpty()) {
+            String optimizedUrl = avatarUrl;
+            if (avatarUrl.contains("cloudinary.com")) {
+                // Tối ưu: rộng 300px, cao 300px, tự động nhận diện khuôn mặt
+                optimizedUrl = avatarUrl.replace("/upload/", "/upload/w_300,h_300,c_fill,g_face/");
+            }
+
+            Glide.with(this)
+                    .load(optimizedUrl)
+                    .placeholder(R.drawable.logo2)
+                    .circleCrop()
+                    .into(imgAvatarProfile);
         }
     }
 
@@ -155,12 +174,11 @@ public class EditProfileFragment extends Fragment {
         }
 
         if (!phone.matches("^0[0-9]{9}$")) {
-            showMotionToast("Lỗi", "Số điện thoại phải có 10 số và bắt đầu bằng 0", MotionToastStyle.ERROR);
+            showMotionToast("Lỗi", "Số điện thoại không hợp lệ", MotionToastStyle.ERROR);
             return;
         }
 
         progressDialog.show();
-
         DatabaseReference usersRef = FirebaseDatabase.getInstance().getReference("users");
         Query query = usersRef.orderByChild("phone").equalTo(phone);
 
@@ -182,27 +200,35 @@ public class EditProfileFragment extends Fragment {
                     saveUserData(name, phone, bio);
                 }
             }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                progressDialog.dismiss();
-            }
+            @Override public void onCancelled(@NonNull DatabaseError error) { progressDialog.dismiss(); }
         });
     }
 
     private void saveUserData(String name, String phone, String bio) {
         if (selectedImageUri != null) {
-            StorageReference ref = FirebaseStorage.getInstance(BUCKET_URL).getReference()
-                    .child("avatars").child(currentUserId + ".jpg");
+            progressDialog.setMessage("Đang tải ảnh lên...");
 
-            ref.putFile(selectedImageUri).addOnSuccessListener(taskSnapshot -> {
-                ref.getDownloadUrl().addOnSuccessListener(uri -> {
-                    updateDatabase(name, phone, bio, uri.toString());
-                });
-            }).addOnFailureListener(e -> {
-                String base64Image = convertUriToBase64(selectedImageUri);
-                updateDatabase(name, phone, bio, base64Image);
-            });
+            MediaManager.get().upload(selectedImageUri)
+                    .option("folder", "avatars/")
+                    .option("public_id", currentUserId)
+                    .callback(new UploadCallback() {
+                        @Override public void onStart(String requestId) {}
+                        @Override public void onProgress(String requestId, long bytes, long totalBytes) {}
+
+                        @Override
+                        public void onSuccess(String requestId, Map resultData) {
+                            String avatarUrl = (String) resultData.get("secure_url");
+                            updateDatabase(name, phone, bio, avatarUrl);
+                        }
+
+                        @Override
+                        public void onError(String requestId, ErrorInfo error) {
+                            progressDialog.dismiss();
+                            showMotionToast("Lỗi tải ảnh", error.getDescription(), MotionToastStyle.ERROR);
+                        }
+
+                        @Override public void onReschedule(String requestId, ErrorInfo error) {}
+                    }).dispatch();
         } else {
             updateDatabase(name, phone, bio, currentUser != null ? currentUser.getAvatar() : "");
         }
@@ -210,8 +236,8 @@ public class EditProfileFragment extends Fragment {
 
     private void updateDatabase(String name, String phone, String bio, String avatarUrl) {
         String oldPhone = currentUser != null ? currentUser.getPhone() : null;
-
         Map<String, Object> childUpdates = new HashMap<>();
+
         childUpdates.put("/users/" + currentUserId + "/name", name);
         childUpdates.put("/users/" + currentUserId + "/phone", phone);
         childUpdates.put("/users/" + currentUserId + "/bio", bio);
@@ -228,49 +254,32 @@ public class EditProfileFragment extends Fragment {
                 .addOnCompleteListener(task -> {
                     progressDialog.dismiss();
                     if (task.isSuccessful()) {
-                        // Cập nhật SharedPreferences
                         if (getContext() != null) {
                             SharedPreferences.Editor editor = getContext().getSharedPreferences("USER", Context.MODE_PRIVATE).edit();
                             editor.putString("name", name);
                             editor.apply();
                         }
-                        
                         showMotionToast("Thành công", "Cập nhật hồ sơ hoàn tất", MotionToastStyle.SUCCESS);
                         setFieldsEnabled(false);
                         loadUserData();
                     } else {
-                        showMotionToast("Thất bại", "Không thể đồng bộ dữ liệu", MotionToastStyle.ERROR);
+                        showMotionToast("Thất bại", "Lỗi đồng bộ dữ liệu", MotionToastStyle.ERROR);
                     }
                 });
     }
 
     private void showMotionToast(String title, String message, MotionToastStyle style) {
+        if (getActivity() == null) return;
         MotionToast.Companion.createColorToast(getActivity(),
-                title,
-                message,
-                style,
-                MotionToast.GRAVITY_BOTTOM,
+                title, message, style, MotionToast.GRAVITY_BOTTOM,
                 MotionToast.LONG_DURATION,
-                ResourcesCompat.getFont(getContext(), www.sanju.motiontoast.R.font.helvetica_regular));
+                ResourcesCompat.getFont(requireContext(), www.sanju.motiontoast.R.font.helvetica_regular));
     }
 
     private void cancelEditing() {
         setFieldsEnabled(false);
         displayUserData();
         selectedImageUri = null;
-    }
-
-    private String convertUriToBase64(Uri uri) {
-        try {
-            InputStream is = getContext().getContentResolver().openInputStream(uri);
-            Bitmap bitmap = BitmapFactory.decodeStream(is);
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 30, baos);
-            byte[] b = baos.toByteArray();
-            return "data:image/jpeg;base64," + Base64.encodeToString(b, Base64.DEFAULT);
-        } catch (Exception e) {
-            return "";
-        }
     }
 
     private final ActivityResultLauncher<Intent> pickImageLauncher = registerForActivityResult(
@@ -287,5 +296,23 @@ public class EditProfileFragment extends Fragment {
         Intent intent = new Intent(Intent.ACTION_PICK);
         intent.setType("image/*");
         pickImageLauncher.launch(intent);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Khi màn hình này hiển thị lên: KHÓA VUỐT ViewPager2
+        if (getActivity() instanceof MainActivity) {
+            ((MainActivity) getActivity()).setSwipeEnabled(false);
+        }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        // Khi thoát khỏi màn hình này (Back hoặc ấn sang tab khác): MỞ LẠI VUỐT
+        if (getActivity() instanceof MainActivity) {
+            ((MainActivity) getActivity()).setSwipeEnabled(true);
+        }
     }
 }

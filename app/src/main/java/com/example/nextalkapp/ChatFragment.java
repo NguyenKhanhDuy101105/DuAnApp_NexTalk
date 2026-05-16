@@ -173,10 +173,16 @@ public class ChatFragment extends Fragment {
     private void updateActiveList() {
         listActive.clear();
         for (User u : listFull) {
+            // Điều kiện 1: Phải có trong listFull
+            // Điều kiện 2: Trạng thái phải là online
             if ("online".equals(u.status)) {
+                // Kiểm tra tránh trùng lặp nếu cần
                 listActive.add(u);
             }
         }
-        if (activeAdapter != null) activeAdapter.notifyDataSetChanged();
+
+        if (activeAdapter != null) {
+            activeAdapter.notifyDataSetChanged();
+        }
     }
 }

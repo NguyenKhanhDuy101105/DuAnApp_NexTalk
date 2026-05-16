@@ -45,6 +45,7 @@ dependencies {
     implementation(libs.constraintlayout)
     implementation(libs.firebase.storage)
     implementation(libs.firebase.messaging)
+    implementation(libs.camera.camera2.pipe)
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
@@ -83,4 +84,9 @@ dependencies {
 
     // Couldinary
     implementation("com.cloudinary:cloudinary-android:2.3.1")
+
+    implementation("com.android.volley:volley:1.2.1") // Thêm dòng này để gửi HTTP Request
+
+    // ONE SIGNAL
+    implementation("com.onesignal:OneSignal:[4.0.0, 4.99.99]")
 }

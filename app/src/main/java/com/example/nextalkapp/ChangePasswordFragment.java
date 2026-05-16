@@ -176,4 +176,22 @@ public class ChangePasswordFragment extends Fragment {
             return password;
         }
     }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Khi màn hình này hiển thị lên: KHÓA VUỐT ViewPager2
+        if (getActivity() instanceof MainActivity) {
+            ((MainActivity) getActivity()).setSwipeEnabled(false);
+        }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        // Khi thoát khỏi màn hình này (Back hoặc ấn sang tab khác): MỞ LẠI VUỐT
+        if (getActivity() instanceof MainActivity) {
+            ((MainActivity) getActivity()).setSwipeEnabled(true);
+        }
+    }
 }
