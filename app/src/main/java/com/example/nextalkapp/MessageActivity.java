@@ -184,10 +184,11 @@ public class MessageActivity extends AppCompatActivity {
         hashMap.put("type", type);
         hashMap.put("timestamp", timestamp);
         hashMap.put("isseen", false);
+        hashMap.put("deletedBySender", false);
+        hashMap.put("deletedByReceiver", false);
 
         messageRef.setValue(hashMap).addOnSuccessListener(aVoid -> {
             String content = type.equals("image") ? "[Hình ảnh]" : message;
-            // Gửi thông báo thực tế
             sendActualNotification("", senderName, content);
         });
 
@@ -202,26 +203,20 @@ public class MessageActivity extends AppCompatActivity {
     private void sendActualNotification(String unusedToken, String title, String message) {
         try {
             JSONObject jsonPayload = new JSONObject();
-
-            // 0. QUAN TRỌNG: Phải có app_id của ứng dụng NexTalk ở đây
             jsonPayload.put("app_id", "3f1507b8-f3c0-417a-a700-8e70612a17bd");
 
-            // 1. Nội dung thông báo
             JSONObject contents = new JSONObject();
             contents.put("en", message);
             jsonPayload.put("contents", contents);
 
-            // 2. Tiêu đề (Tên người gửi)
             JSONObject headings = new JSONObject();
             headings.put("en", title);
             jsonPayload.put("headings", headings);
 
-            // 3. Người nhận (Dựa trên external_id)
             JSONArray externalIds = new JSONArray();
             externalIds.put(receiverUid);
             jsonPayload.put("include_external_user_ids", externalIds);
 
-            // 4. Data Payload để xử lý logic mở phòng chat
             JSONObject data = new JSONObject();
             data.put("senderUid", senderUid);
             data.put("senderName", senderName);
@@ -246,9 +241,7 @@ public class MessageActivity extends AppCompatActivity {
                 public Map<String, String> getHeaders() {
                     Map<String, String> headers = new HashMap<>();
                     headers.put("Content-Type", "application/json; charset=UTF-8");
-
-                    // THAY ĐỔI: Dán chính xác REST API Key của bạn vào sau chữ "Basic "
-                    headers.put("Authorization", "os_v2_app_h4kqpohtybaxvjyarzygckqxxupdgslrwjjelv4qm5pz6x3ty4vez3hyo23gj7meumee4phyuez4zppzole4nrmw5522tl3xyy4co5i");
+                    headers.put("Authorization", "os_v2_app_h4kqpohtybaxvjyarzygckqxxwowzhn2vpjun6vj6h3k3z4fyoclya7mxljdtpcwv72d5ovnnqsnpujbc3i4eq32x2xqaowq2fip63y");
                     return headers;
                 }
             };
@@ -304,6 +297,15 @@ public class MessageActivity extends AppCompatActivity {
             for (DataSnapshot data : snapshot.getChildren()) {
                 ChatModel chat = data.getValue(ChatModel.class);
                 if (chat != null) {
+                    // --- ĐÃ THÊM: LOGIC LỌC TIN NHẮN BỊ XÓA ẨN (SOFT DELETE) ---
+                    boolean isMyMessage = chat.getSender().equals(senderUid);
+                    if (isMyMessage && data.child("deletedBySender").getValue(Boolean.class) != null && data.child("deletedBySender").getValue(Boolean.class)) {
+                        continue; // Nếu mình gửi và mình đã xóa -> Không thêm vào danh sách hiển thị
+                    }
+                    if (!isMyMessage && data.child("deletedByReceiver").getValue(Boolean.class) != null && data.child("deletedByReceiver").getValue(Boolean.class)) {
+                        continue; // Nếu mình nhận và mình đã xóa -> Không thêm vào danh sách hiển thị
+                    }
+
                     chat.setPending(false);
                     mChat.add(chat);
                     firebaseIds.add(chat.getMessageId());
@@ -486,27 +488,11 @@ public class MessageActivity extends AppCompatActivity {
         }
         showMotionToast("Đang tải", "Đang gửi ảnh...", MotionToastStyle.INFO);
         MediaManager.get().upload(uri).unsigned("Images").option("folder", "chat_images").callback(new UploadCallback() {
-            @Override
-            public void onStart(String requestId) {
-            }
-
-            @Override
-            public void onProgress(String requestId, long bytes, long totalBytes) {
-            }
-
-            @Override
-            public void onSuccess(String requestId, Map resultData) {
-                handleSendMessage((String) resultData.get("secure_url"), "image");
-            }
-
-            @Override
-            public void onError(String requestId, ErrorInfo error) {
-                showMotionToast("Lỗi", "Tải ảnh lỗi!", MotionToastStyle.ERROR);
-            }
-
-            @Override
-            public void onReschedule(String requestId, ErrorInfo error) {
-            }
+            @Override public void onStart(String requestId) {}
+            @Override public void onProgress(String requestId, long bytes, long totalBytes) {}
+            @Override public void onSuccess(String requestId, Map resultData) { handleSendMessage((String) resultData.get("secure_url"), "image"); }
+            @Override public void onError(String requestId, ErrorInfo error) { showMotionToast("Lỗi", "Tải ảnh lỗi!", MotionToastStyle.ERROR); }
+            @Override public void onReschedule(String requestId, ErrorInfo error) {}
         }).dispatch();
     }
 }

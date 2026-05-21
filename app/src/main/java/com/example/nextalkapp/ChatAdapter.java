@@ -23,14 +23,20 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
 
     private List<User> list;
     private OnItemClickListener listener;
+    private OnItemLongClickListener longClickListener;
 
     public interface OnItemClickListener {
         void onItemClick(User user);
     }
 
-    public ChatAdapter(List<User> list, OnItemClickListener listener) {
+    public interface OnItemLongClickListener {
+        void onItemLongClick(User user);
+    }
+
+    public ChatAdapter(List<User> list, OnItemClickListener listener, OnItemLongClickListener longClickListener) {
         this.list = list;
         this.listener = listener;
+        this.longClickListener = longClickListener;
     }
 
     @NonNull
@@ -51,19 +57,17 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
         String myName = prefs.getString("name", "");
         String lastMsg = user.lastMessage;
 
+        // --- ĐÃ SỬA: KIỂM TRA ĐIỀU KIỆN TIN NHẮN CUỐI NẾU CUỘC TRÒ CHUYỆN ĐÃ BỊ XOÁ ẨN ---
         if (lastMsg != null && !lastMsg.isEmpty()) {
-            // 1. GIẢI MÃ TRƯỚC (Chỉ giải mã nếu không phải là hình ảnh)
             if (!lastMsg.equals("[Hình ảnh]")) {
                 try {
                     lastMsg = AESUtils.decrypt(lastMsg);
                 } catch (Exception e) {
-                    // Nếu lỗi (có thể là tin nhắn cũ chưa mã hóa), giữ nguyên để không bị mất text
                     android.util.Log.e("AES_ChatAdapter", "Lỗi giải mã: " + e.getMessage());
                 }
             }
 
-            // 2. SAU ĐÓ MỚI XỬ LÝ CHỮ "BẠN"
-            if (!myName.isEmpty() && lastMsg.startsWith(myName)) {
+            if (!myName.isEmpty() && lastMsg != null && lastMsg.startsWith(myName)) {
                 lastMsg = lastMsg.replaceFirst(myName, "Bạn");
             }
             holder.txtLastMessage.setText(lastMsg);
@@ -71,12 +75,14 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             holder.txtLastMessage.setText("Bắt đầu cuộc trò chuyện");
         }
 
-        // --- LOGIC HIỂN THỊ THỜI GIAN THÔNG MINH ---
+        // --- THỜI GIAN ---
         long currentTime = System.currentTimeMillis();
         long lastTime = user.lastTime;
         String formattedTime;
 
-        if (currentTime - lastTime > 86400000) {
+        if (lastTime <= 0) {
+            formattedTime = ""; // Không hiển thị mốc thời gian nếu chưa nhắn tin hoặc đã xóa cuộc trò chuyện
+        } else if (currentTime - lastTime > 86400000) {
             SimpleDateFormat sdfDate = new SimpleDateFormat("dd/MM HH:mm", Locale.getDefault());
             formattedTime = sdfDate.format(new Date(lastTime));
         } else {
@@ -97,15 +103,22 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
         }
 
         if ("online".equals(user.status)) {
-            holder.viewStatusChat.setVisibility(View.VISIBLE);
+            holder.viewStatusChat.setBackgroundResource(R.drawable.bg_status_online);
         } else {
-            holder.viewStatusChat.setVisibility(View.GONE);
+            holder.viewStatusChat.setBackgroundResource(R.drawable.bg_status_offline);
         }
 
+        // Sự kiện Click
         holder.itemView.setOnClickListener(v -> {
-            if (listener != null) {
-                listener.onItemClick(user);
+            if (listener != null) listener.onItemClick(user);
+        });
+
+        // Sự kiện Long Click (Nhấn giữ để xoá)
+        holder.itemView.setOnLongClickListener(v -> {
+            if (longClickListener != null) {
+                longClickListener.onItemLongClick(user);
             }
+            return true;
         });
     }
 

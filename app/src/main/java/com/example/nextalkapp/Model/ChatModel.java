@@ -6,6 +6,8 @@ public class ChatModel {
     private long timestamp;
     private boolean isseen;
     private boolean pending; // Thêm trường này để xác định tin nhắn offline
+    public boolean deletedBySender;
+    public boolean deletedByReceiver;
 
     public ChatModel() {
     }
@@ -25,6 +27,19 @@ public class ChatModel {
         this.type = type;
         this.timestamp = timestamp;
         this.isseen = isseen;
+    }
+
+    public ChatModel(String messageId, String sender, String receiver, String message, String type, long timestamp, boolean isseen, boolean pending, boolean deletedBySender, boolean deletedByReceiver) {
+        this.messageId = messageId;
+        this.sender = sender;
+        this.receiver = receiver;
+        this.message = message;
+        this.type = type;
+        this.timestamp = timestamp;
+        this.isseen = isseen;
+        this.pending = pending;
+        this.deletedBySender = deletedBySender;
+        this.deletedByReceiver = deletedByReceiver;
     }
 
     public boolean isIsseen() {

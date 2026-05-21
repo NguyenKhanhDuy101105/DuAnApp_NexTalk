@@ -8,10 +8,14 @@ import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -26,6 +30,9 @@ import com.google.firebase.database.ValueEventListener;
 import java.util.ArrayList;
 import java.util.List;
 
+import www.sanju.motiontoast.MotionToast;
+import www.sanju.motiontoast.MotionToastStyle;
+
 public class ChatFragment extends Fragment {
 
     private RecyclerView rcvChats, rcvActiveNow;
@@ -34,6 +41,7 @@ public class ChatFragment extends Fragment {
     private ActiveAdapter activeAdapter;
     private List<User> list, listFull, listActive;
     private DatabaseReference dbRef;
+    private String currentUid;
 
     public ChatFragment() {}
 
@@ -49,7 +57,13 @@ public class ChatFragment extends Fragment {
         listFull = new ArrayList<>();
         listActive = new ArrayList<>();
 
-        adapter = new ChatAdapter(list, user -> startChatMessage(user));
+        if (getContext() != null) {
+            SharedPreferences prefs = getContext().getSharedPreferences("USER", android.content.Context.MODE_PRIVATE);
+            currentUid = prefs.getString("uid", null);
+        }
+
+        // Khởi tạo adapter với cả sự kiện Click và Long Click (xóa)
+        adapter = new ChatAdapter(list, user -> startChatMessage(user), user -> showDeleteChatDialog(user));
         rcvChats.setLayoutManager(new LinearLayoutManager(getContext()));
         rcvChats.setAdapter(adapter);
 
@@ -63,6 +77,87 @@ public class ChatFragment extends Fragment {
         return view;
     }
 
+    private void showDeleteChatDialog(User user) {
+        if (getContext() == null) return;
+
+        // 1. Khởi tạo Builder và nạp Layout custom vào
+        AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+        View view = LayoutInflater.from(getContext()).inflate(R.layout.dialog_delete_chat, null);
+        builder.setView(view);
+
+        AlertDialog dialog = builder.create();
+
+        // 2. Làm trong suốt background mặc định của hệ thống để hiển thị được góc bo tròn
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        }
+
+        // 3. Ánh xạ các View trong layout custom
+        TextView tvDialogMessage = view.findViewById(R.id.tvDialogMessage);
+        Button btnCancel = view.findViewById(R.id.btnCancel);
+        Button btnDelete = view.findViewById(R.id.btnDelete);
+
+        // Điền tên người dùng động vào nội dung
+        tvDialogMessage.setText("Bạn có chắc chắn muốn xóa cuộc trò chuyện với " + user.name + " không? Hành động này không thể hoàn tác.");
+
+        // 4. Bắt sự kiện cho các nút bấm
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+
+        btnDelete.setOnClickListener(v -> {
+            deleteChat(user); // Gọi hàm xử lý xóa logic của bạn
+            dialog.dismiss();
+        });
+
+        dialog.show();
+    }
+
+    private void deleteChat(User user) {
+        if (currentUid == null || user == null || user.uid == null) return;
+
+        // 1. Tạo chatRoomId chuẩn đồng bộ (u1.compareTo(u2) < 0) giống như bên MessageActivity
+        String chatRoomId = (currentUid.compareTo(user.uid) < 0) ? currentUid + "_" + user.uid : user.uid + "_" + currentUid;
+
+        DatabaseReference messagesRef = FirebaseDatabase.getInstance().getReference("messages").child(chatRoomId);
+
+        // 2. Duyệt qua tất cả các tin nhắn trong phòng chat này để cập nhật trạng thái xóa ẩn
+        messagesRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (snapshot.exists()) {
+                    for (DataSnapshot data : snapshot.getChildren()) {
+                        String sender = data.child("sender").getValue(String.class);
+
+                        if (sender != null) {
+                            // Nếu mình là người gửi (sender) -> chuyển deletedBySender thành true
+                            if (sender.equals(currentUid)) {
+                                data.getRef().child("deletedBySender").setValue(true);
+                            }
+                            // Nếu mình không phải người gửi (tức là người nhận) -> chuyển deletedByReceiver thành true
+                            else {
+                                data.getRef().child("deletedByReceiver").setValue(true);
+                            }
+                        }
+                    }
+                }
+
+                // 3. Sau khi đã cập nhật xong trạng thái của các tin nhắn,
+                // Tiến hành xóa cuộc trò chuyện ở danh sách bên ngoài (nhánh chats) của riêng mình
+                dbRef.child("chats").child(currentUid).child(user.uid).removeValue()
+                        .addOnSuccessListener(aVoid -> {
+                            showMotionToast("Thành công", "Đã xóa cuộc trò chuyện", MotionToastStyle.SUCCESS);
+                        })
+                        .addOnFailureListener(e -> {
+                            showMotionToast("Lỗi", "Không thể xóa cuộc trò chuyện lúc này", MotionToastStyle.ERROR);
+                        });
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                showMotionToast("Lỗi", "Không thể kết nối đến cơ sở dữ liệu", MotionToastStyle.ERROR);
+            }
+        });
+    }
+
     private void startChatMessage(User user) {
         Intent intent = new Intent(getActivity(), MessageActivity.class);
         intent.putExtra("receiverUid", user.uid);
@@ -72,23 +167,27 @@ public class ChatFragment extends Fragment {
     }
 
     private void loadUsers() {
-        if (getContext() == null) return;
-        SharedPreferences prefs = getContext().getSharedPreferences("USER", android.content.Context.MODE_PRIVATE);
-        String currentUid = prefs.getString("uid", null);
         if (currentUid == null) return;
-
-        List<User> tempChatList = new ArrayList<>();
 
         dbRef.child("chats").child(currentUid).addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot chatSnapshot) {
+                List<User> tempChatList = new ArrayList<>();
+                if (!chatSnapshot.exists()) {
+                    list.clear();
+                    listFull.clear();
+                    listActive.clear();
+                    adapter.notifyDataSetChanged();
+                    activeAdapter.notifyDataSetChanged();
+                    return;
+                }
+
                 for (DataSnapshot data : chatSnapshot.getChildren()) {
                     String otherUid = data.getKey();
                     String lastMsg = data.child("lastMessage").getValue(String.class);
                     Long lastTime = data.child("lastTime").getValue(Long.class);
                     String chatRoomId = getChatRoomId(currentUid, otherUid);
 
-                    // Lấy thông tin User và Biệt danh song song
                     dbRef.child("users").child(otherUid).addValueEventListener(new ValueEventListener() {
                         @Override
                         public void onDataChange(@NonNull DataSnapshot userSnapshot) {
@@ -97,7 +196,6 @@ public class ChatFragment extends Fragment {
                                 String avatar = userSnapshot.child("avatar").getValue(String.class);
                                 String status = userSnapshot.child("status").getValue(String.class);
 
-                                // Lấy biệt danh từ node nicknames
                                 dbRef.child("nicknames").child(chatRoomId).child(otherUid).addValueEventListener(new ValueEventListener() {
                                     @Override
                                     public void onDataChange(@NonNull DataSnapshot nickSnapshot) {
@@ -173,16 +271,21 @@ public class ChatFragment extends Fragment {
     private void updateActiveList() {
         listActive.clear();
         for (User u : listFull) {
-            // Điều kiện 1: Phải có trong listFull
-            // Điều kiện 2: Trạng thái phải là online
             if ("online".equals(u.status)) {
-                // Kiểm tra tránh trùng lặp nếu cần
                 listActive.add(u);
             }
         }
 
         if (activeAdapter != null) {
             activeAdapter.notifyDataSetChanged();
+        }
+    }
+
+    private void showMotionToast(String title, String message, MotionToastStyle style) {
+        if (getActivity() != null) {
+            MotionToast.Companion.createColorToast(getActivity(),
+                    title, message, style, MotionToast.GRAVITY_BOTTOM,
+                    MotionToast.LONG_DURATION, null);
         }
     }
 }
