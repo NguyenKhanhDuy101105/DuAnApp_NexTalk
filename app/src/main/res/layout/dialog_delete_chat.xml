@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://github.com/schemas/android-package"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_edit_white"
+    android:padding="24dp"
+    android:layout_margin="20dp">
+
+    <ImageView
+        android:id="@+id/imgIcon"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:layout_gravity="center"
+        android:src="@android:drawable/ic_dialog_alert"
+        android:contentDescription="Warning Icon"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:id="@+id/tvDialogTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Xóa cuộc trò chuyện"
+        android:textColor="#222222"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginBottom="12dp"/>
+
+    <TextView
+        android:id="@+id/tvDialogMessage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Bạn có chắc chắn muốn xóa cuộc trò chuyện không? Hành động này không thể hoàn tác."
+        android:textColor="#666666"
+        android:textSize="14sp"
+        android:gravity="center"
+        android:layout_marginBottom="24dp"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:weightSum="2">
+
+        <Button
+            android:id="@+id/btnCancel"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:text="Hủy"
+            android:textColor="#777777"
+            android:backgroundTint="#EAEAEA"
+            android:layout_marginEnd="8dp"
+            android:textAllCaps="false"
+            android:textStyle="bold"/>
+
+        <Button
+            android:id="@+id/btnDelete"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:text="Xóa"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#E53935"
+            android:layout_marginStart="8dp"
+            android:textAllCaps="false"
+            android:textStyle="bold"/>
+    </LinearLayout>
+</LinearLayout>
