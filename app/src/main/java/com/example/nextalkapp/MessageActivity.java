@@ -75,7 +75,7 @@ public class MessageActivity extends AppCompatActivity {
     private ValueEventListener messagesListener;
     private DataSnapshot lastFirebaseSnapshot;
     private OfflineDbHelper offlineDbHelper;
-
+    private String keyApiOneSignal = "os_v2_app_h4kqpohtybaxvjyarzygckqxxuf4in6xtm5evxnydvrygb5cwbmfyhx6a6z5nvrjte3bpwi3cie4bgpreiwqfghl3lvorw4v4pdbe7y";
     private final ActivityResultLauncher<Intent> pickImageLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
         if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
             uploadImage(result.getData().getData());
@@ -241,7 +241,7 @@ public class MessageActivity extends AppCompatActivity {
                 public Map<String, String> getHeaders() {
                     Map<String, String> headers = new HashMap<>();
                     headers.put("Content-Type", "application/json; charset=UTF-8");
-                    headers.put("Authorization", "os_v2_app_h4kqpohtybaxvjyarzygckqxxwowzhn2vpjun6vj6h3k3z4fyoclya7mxljdtpcwv72d5ovnnqsnpujbc3i4eq32x2xqaowq2fip63y");
+                    headers.put("Authorization", keyApiOneSignal);
                     return headers;
                 }
             };
